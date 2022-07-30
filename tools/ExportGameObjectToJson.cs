@@ -4,8 +4,15 @@ using UnityEditor;
 using System.IO;
 using System.Text;
 
+/**
+* GameObjectの名前、トランスフォーム等をJSONファイルに出力するエディタ拡張
+*
+* プロジェクトのEditorフォルダ(無ければ適当な場所に作成)に配置して使う.
+*/
 class ExportGameObjectToJson : EditorWindow
 {
+    bool flipYZAxis = true; // XZ平面のマップを-90度回転して、XY平面として出力する
+
     [MenuItem("File/Export/GameObject To Json")]
 
     static void Init()
@@ -16,12 +23,13 @@ class ExportGameObjectToJson : EditorWindow
 
     void OnGUI()
     {
-      if (GUILayout.Button("Export")) {
-         Export();
-      }
+        flipYZAxis = GUILayout.Toggle(flipYZAxis, "Flip YZ Axis");
+        if (GUILayout.Button("Export")) {
+            Export(flipYZAxis);
+        }
     }
 
-    private static void Export()
+    private static void Export(bool flipYZAxis)
     {
         var path = EditorUtility.SaveFilePanel(
             "Export GameObject To Json",
@@ -55,6 +63,13 @@ class ExportGameObjectToJson : EditorWindow
                 var t = go.transform.position;
                 var r = go.transform.eulerAngles;
                 var s = go.transform.localScale;
+                if (flipYZAxis) {
+                    var tmp = -t.y;
+                    t.y = t.z;
+                    t.z = tmp;
+                    var q = Quaternion.AngleAxis(-90, Vector3.right) * go.transform.rotation;
+                    r = q.eulerAngles;
+                }
                 sb.AppendLine();
                 sb.Append("  ");
                 sb.Append("{ \"name\" : \"" + go.name + "\"");
