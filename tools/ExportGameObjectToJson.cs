@@ -40,14 +40,14 @@ class ExportGameObjectToJson : EditorWindow
             int count = 0;
             GameObject[] gameObjects = SceneManager.GetActiveScene().GetRootGameObjects();
             foreach (GameObject go in gameObjects) {
-                string name;
+                string meshName;
                 var prefab = PrefabUtility.GetCorrespondingObjectFromSource(go);
                 if (prefab != null) {
-                    name = prefab.name;
+                    meshName = prefab.name;
                 } else {
                     MeshFilter m = go.GetComponent<MeshFilter>();
                     if (m != null && m.mesh != null) {
-                        name = m.mesh.name;
+                        meshName = m.mesh.name;
                     } else {
                         continue;
                     }
@@ -56,10 +56,16 @@ class ExportGameObjectToJson : EditorWindow
                 var r = go.transform.eulerAngles;
                 var s = go.transform.localScale;
                 sb.AppendLine();
-                sb.Append("  { \"name\" : \"" + prefab.name + "\", ");
-                sb.Append("\"translate\" : [ " + t.x + ", " + t.y + ", " + t.z + " ], ");
-                sb.Append("\"rotate\" : [ " + r.x + ", " + r.y + ", " + r.z + " ], ");
-                sb.Append("\"scale\" : [ " + s.x + ", " + s.y + ", " + s.z + " ] },");
+                sb.Append("  ");
+                sb.Append("{ \"name\" : \"" + go.name + "\"");
+                sb.Append(", \"mesh\" : \"" + meshName + "\"");
+                sb.Append(", \"translate\" : [ " + t.x + ", " + t.y + ", " + t.z + " ]");
+                sb.Append(", \"rotate\" : [ " + r.x + ", " + r.y + ", " + r.z + " ]");
+                sb.Append(", \"scale\" : [ " + s.x + ", " + s.y + ", " + s.z + " ]");
+                if (go.tag != "Untagged") {
+                    sb.Append(", \"tag\" : \"" + go.tag + "\"");
+                }
+                sb.Append(" },");
                 ++count;
             }
             // JSON準拠のため、末尾のカンマを消す
