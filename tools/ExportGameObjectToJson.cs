@@ -64,9 +64,7 @@ class ExportGameObjectToJson : EditorWindow
                 var r = go.transform.eulerAngles;
                 var s = go.transform.localScale;
                 if (flipYZAxis) {
-                    var tmp = -t.y;
-                    t.y = t.z;
-                    t.z = tmp;
+                    (t.y, t.z) = (t.z, t.y);
                     var q = Quaternion.AngleAxis(-90, Vector3.right) * go.transform.rotation;
                     r = q.eulerAngles;
                 }
