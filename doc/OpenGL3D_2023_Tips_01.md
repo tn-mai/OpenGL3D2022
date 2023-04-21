@@ -691,7 +691,7 @@ void glGetintegerv(取得するパラメータ名, 値を格納する変数の�
 +  GLint alignment;
 +  glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
 +  if (alignment != pixelBytes) {
-+    glPixelStorei(GL_UNPACK_ALIGNMENT, pixelBytes);
++    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 +  }
  
    // GPUメモリにデータをコピー
