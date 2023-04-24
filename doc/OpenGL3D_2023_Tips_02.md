@@ -4,9 +4,9 @@
 
 ## 習得目標
 
-* 
-* 
-* 
+* DDS(ダイレクト・ドロー・サーフェス)のデータ圧縮の仕組みを説明できる。
+* DDSファイルからテクスチャを作成できる。
+* ミップマップの仕組みと利点および欠点を説明できる。
 
 ## 1. 圧縮テクスチャ
 
@@ -29,22 +29,20 @@ DDS形式の特徴は、GPUが直接扱える圧縮フォーマットをサポ�
 DDSの主な圧縮フォーマットは3つあり、それぞれDXT1(ディーエックスティー・ワン)、DXT3、DXT5という名前がついています。
 
 >**【DXT2とDXT4はもう使われない】**<br>
->DXT2, DXT4というフォーマットもありますが、2023年現在では使われていません。機能的にはDXT3, DXT5と同等で、違いはRGBに「圧縮前のRGBにアルファを掛けた値」が記録されることです。<br>
->これには、GPUで半透明合成を行う際、RGBとアルファの乗算を省略できるという利点があります。しかし、これが役に立つのは「テクスチャのRGBを直接フレームバッファと合成する場合」に限られます。<br>
->2023年現在では、シェーダ内でテクスチャのRGBを変換してから出力することがほとんどです。この使い方において、DXT2, DXT4の特徴は欠点にしかなりません。そのため、使われることはなくなりました。<br>
->実際、最新の圧縮フォーマットであるBC圧縮ではDXT2, DXT4に相当するフォーマットは存在しません。
+>DXT2, DXT4というフォーマットもありますが、2023年現在では使われていません。機能的にはDXT3, DXT5と同等で、違いはRGBに「圧縮前のRGBにアルファを掛けた値」が記録されることです。これには、GPUで半透明合成を行う際、RGBとアルファの乗算を省略できるという利点があります。<br>
+>ただ、2023年現在の描画処理では「元の色が分からない」ということが欠点になるため、使われることはなくなりました。実際、最新の圧縮フォーマットであるBC圧縮では、DXT2, DXT4に相当するフォーマットは存在しません。
 
 DDSの圧縮フォーマットでは、4x4ピクセルを1ブロックとして扱い、ブロックごとにデータを圧縮します。この特徴から「ブロック圧縮」形式とも呼ばれます。
   
 <p align="center">
-<img src="images/tips_02_image1.png" width="50%" /><br>
+<img src="images/tips_02_image1.png" width="66%" /><br>
 https://www.webtech.co.jp/blog/optpix_labs/format/4569/
 </p>
 
 次の図ように、各ブロックはRGB成分とアルファ成分に分けて圧縮されます。
   
 <p align="center">
-<img src="images/tips_02_image2.png" width="50%" /><br>
+<img src="images/tips_02_image2.png" width="66%" /><br>
 https://www.webtech.co.jp/blog/optpix_labs/format/4569/
 </p>
 
@@ -53,7 +51,7 @@ RGB成分の圧縮では、まずブロックを代表する色を2つ抽出し�
 このような仕組みになっているため、4x4の中に主要な色が3色以上含まれていると正しい色を復元できなくなってしまいます。また、24ビットカラーを16ビットカラーに圧縮するため、微妙な色合いの再現は苦手です。
 
 <p align="center">
-<img src="images/tips_02_image3.png" width="50%" /><br>
+<img src="images/tips_02_image3.png" width="66%" /><br>
 https://techblog.sega.jp/entry/2016/12/26/100000
 </p>
 
@@ -61,7 +59,7 @@ https://techblog.sega.jp/entry/2016/12/26/100000
 
 DXT3とDXT5は、RGB成分についてはDXT1と同じ方法で圧縮しますが、アルファ成分もブロック圧縮して保存する点が異なります。
 
-DXT3では0.0～1.0を15等分した16色を使用し、各アルファ値を最も近い色の番号で置き換えます。
+DXT3では0.0～1.0を15等分した16色を使用し、アルファ値を最も近い色の番号で置き換えます。
 
 DXT5ではDXT1のように2つの代表色を抽出し、この2色を線形補間して6つの中間色を作ります。ただし、カラー圧縮は行われません(8ビットのままです)。そして、各ピクセルデータを8色のうち最も近い色の番号で置き換えます。
 
@@ -153,14 +151,14 @@ DDSヘッダには複数のフラグ領域があり、それぞれが画像の�
  };
 +
 +// 基本フラグ
-+constexpr uint32_t DDSD_CAPS        = 0x0000'0001; // capsが有効(必須)
-+constexpr uint32_t DDSD_HEIGHT      = 0x0000'0002; // widthが有効(必須)
-+constexpr uint32_t DDSD_WIDTH       = 0x0000'0004; // heightが有効(必須)
-+constexpr uint32_t DDSD_PITCH       = 0x0000'0008; // pitchOrLinearSizeにはpitchが格納されている
-+constexpr uint32_t DDSD_PIXELFORMAT = 0x0000'1000; // ddspfが有効(必須)
-+constexpr uint32_t DDSD_MIPMAPCOUNT = 0x0002'0000; // mipmapCountが有効(ミップマップがある場合は必須)
-+constexpr uint32_t DDSD_LINEARSIZE  = 0x0008'0000; // pitchOrLinearSizeにはlinearSizeが格納されている
-+constexpr uint32_t DDSD_DEPTH       = 0x0080'0000; // depthが有効(3Dテクスチャの場合は必須)
++constexpr uint32_t DDSD_CAPS        = 0x00'0001; // capsが有効(必須)
++constexpr uint32_t DDSD_HEIGHT      = 0x00'0002; // widthが有効(必須)
++constexpr uint32_t DDSD_WIDTH       = 0x00'0004; // heightが有効(必須)
++constexpr uint32_t DDSD_PITCH       = 0x00'0008; // pitchOrLinearSizeのpitchが有効
++constexpr uint32_t DDSD_PIXELFORMAT = 0x00'1000; // ddspfが有効(必須)
++constexpr uint32_t DDSD_MIPMAPCOUNT = 0x02'0000; // mipmapCountが有効
++constexpr uint32_t DDSD_LINEARSIZE  = 0x08'0000; // pitchOrLinearSizeのlinearSizeが有効
++constexpr uint32_t DDSD_DEPTH       = 0x80'0000; // depthが有効
 
  #endif // DDS_H_INCLUDED
 ```
@@ -170,23 +168,24 @@ DDSヘッダには複数のフラグ領域があり、それぞれが画像の�
 次に、`DDSheader::caps`に設定されるフラグを定義します。`DDSD_DEPTH`フラグの定義の下に、次のプログラムを追加してください。
 
 ```diff
- constexpr uint32_t DDSD_MIPMAPCOUNT = 0x0002'0000; // mipmapCountが有効(ミップマップがある場合は必須)
- constexpr uint32_t DDSD_LINEARSIZE  = 0x0008'0000; // 圧縮テクスチャにピッチが指定されている
- constexpr uint32_t DDSD_DEPTH       = 0x0080'0000; // depthが有効(3Dテクスチャの場合は必須)
+ constexpr uint32_t DDSD_MIPMAPCOUNT = 0x02'0000; // mipmapCountが有効
+ constexpr uint32_t DDSD_LINEARSIZE  = 0x08'0000; // pitchOrLinearSizeのlinearSizeが有効
+ constexpr uint32_t DDSD_DEPTH       = 0x80'0000; // depthが有効
 +
 +// 画像特性フラグ1
-+constexpr uint32_t DDSCAPS_TEXTURE = 0x0000'1000; // テクスチャである(必須)
-+constexpr uint32_t DDSCAPS_MIPMAP  = 0x0040'0000; // ミップマップが格納されている
-+constexpr uint32_t DDSCAPS_COMPLEX = 0x0000'0008; // 二枚以上のサーフェスが格納されている
++constexpr uint32_t DDSCAPS_TEXTURE = 0x00'1000; // テクスチャである(必須)
++constexpr uint32_t DDSCAPS_MIPMAP  = 0x40'0000; // ミップマップが格納されている
++constexpr uint32_t DDSCAPS_COMPLEX = 0x00'0008; // 二枚以上のサーフェスが格納されている
 +
 +// 画像特性フラグ2
-+constexpr uint32_t DDSCAPS2_CUBEMAP = 0x0000'0200; // キューブマップテクスチャが格納されている
-+constexpr uint32_t DDSCAPS2_VOLUME  = 0x0020'0000; // ボリュームテクスチャが格納されている
++constexpr uint32_t DDSCAPS2_CUBEMAP = 0x00'0200; // キューブマップテクスチャが格納されている
++constexpr uint32_t DDSCAPS2_VOLUME  = 0x20'0000; // ボリュームテクスチャが格納されている
 
  #endif // DDS_H_INCLUDED
 ```
 
-画像特性フラグは、格納されている画像の種類や枚数の概要を表します。名前の先頭にある`DDSCAPS`は、`DDS caps`(DDSキャプス, 「DDS特性」という意味)を意味します。
+画像特性フラグは、格納されている画像の種類や枚数の概要を表します。名前の先頭にある
+`DDSCAPS`は、`DDS caps`(DDSキャプス, 「DDS特性」という意味)を意味します。
 
 あと一つ、ピクセル形式に関するフラグを定義します。`DDSPixelFormat`構造体の定義の下に、次のプログラムを追加してください。
 
@@ -197,10 +196,10 @@ DDSヘッダには複数のフラグ領域があり、それぞれが画像の�
 +
 +// ピクセル形式フラグ
 +constexpr uint32_t DDPF_ALPHAPIXELS = 0x01;   // alphaBitMaskが有効
-+constexpr uint32_t DDPF_ALPHA       = 0x02;   // alphaBitMaskが有効(red, blue, greenのBitMaskは無効)
++constexpr uint32_t DDPF_ALPHA       = 0x02;   // alphaBitMaskが有効(RGBのBitMaskは無効)
 +constexpr uint32_t DDPF_FOURCC      = 0x04;   // fourCCが有効(BitMaskは無効)
-+constexpr uint32_t DDPF_RGB         = 0x40;   // redBitMask, blueBitMask, greenBitMaskが有効
-+constexpr uint32_t DDPF_LUMINANCE = 0x2'0000; // redBitMaskが有効(blue, greenのBitMaskは無効)
++constexpr uint32_t DDPF_RGB         = 0x40;   // RGBのBitMaskが有効
++constexpr uint32_t DDPF_LUMINANCE = 0x2'0000; // redBitMaskが有効(GBのBitMaskは無効)
 
  /**
  * DDSファイルヘッダ
@@ -217,7 +216,9 @@ DDSヘッダには複数のフラグ領域があり、それぞれが画像の�
 
 なお、`fourCC`は`four Character Code`(フォー・キャラクタ・コード)の短縮形で、「4文字で表されるデータ種別」を意味します。
 
-例えば、DXT1形式に対応するfourCCは「`D`=0x44, `X`=0x58, `T`=0x54, `1`=0x31」を連結した`0x31545844`です。
+例えば、DXT1形式に対応するfourCCは<br>
+&emsp;`D`=0x44 `X`=0x58 `T`=0x54 `1`=0x31<br>
+を連結した`0x31545844`です。
 
 >**【無圧縮フォーマットに対応する利点】**<br>
 >これは「すべてのテクスチャファイルをDDSに統一できる」ことでしょう。TGA関係のコードを削除できるため、テクスチャを読み込むプログラムが分かりやすくなります。また、2つ以上の形式が混在していると、どちらを使うべきか迷ったり、使うべき形式を間違えることが考えられます。DDSに統一できれば、そのような混乱やミスを減らせる可能性があります。
@@ -260,7 +261,8 @@ DDSファイルの数値はすべて`uint32_t`なので、4バイトのデータ
 
 そこで、関数として定義することにしました。また、`Get`という関数名は普遍的すぎるため、関数名が重複する可能性があります。万が一を考えて、ファイル外から名前を見えなくするために無名名前空間の中に入れています。
 
-それでは、`Get`関数を使ってピクセル形式を読み込みましょう。関数名は`ReadDDSPixelFormat`(リード・ディーディーエス・ピクセル・フォーマット)とします。無名名前空間の下に、次のプログラムを追加してください。
+それでは、`Get`関数を使ってピクセル形式を読み込みましょう。<br>
+関数名は`ReadDDSPixelFormat`(リード・ディーディーエス・ピクセル・フォーマット)とします。無名名前空間の下に、次のプログラムを追加してください。
 
 ```diff
  }
@@ -293,7 +295,9 @@ DDSファイルの数値はすべて`uint32_t`なので、4バイトのデータ
 
 ### 1.5 DDSHeaderを読み込む関数を定義する
 
-次に、`DDSHeader`を読み込む関数を定義します。関数名は`ReadDDSHeader`(リード・ディーディーエス・ヘッダ)とします。`ReadDDSPixelFormat`関数の定義の下に、次のプログラムを追加してください。
+次に、`DDSHeader`を読み込む関数を定義します。<br>
+関数名は`ReadDDSHeader`(リード・ディーディーエス・ヘッダ)とします。
+`ReadDDSPixelFormat`関数の定義の下に、次のプログラムを追加してください。
 
 ```diff
    tmp.alphaBitMask = Get(buf + 28);
@@ -479,7 +483,7 @@ DDSピクセル形式は`fourCC`によって定義されます。`fourCC`を判�
 
 また、DXT1に限り、ブロックサイズは8になります。DXT1はアルファ専用データを持たないため、その分1ブロックのデータが少ないのです。
 
-#### ミップマップについて
+### 1.7 ミップマップに対応する
 
 これでピクセル形式が判明したので、ようやく画像データを読み込むことができます。TGAファイルと異なり、DDSファイルはさまざまなテクスチャ形式をそのまま記録できるように作られています。
 
@@ -490,6 +494,10 @@ DDSピクセル形式は`fourCC`によって定義されます。`fourCC`を判�
 >あらかじめ縦横1/2, 1/4, 1/8, ...のサイズに縮小した画像を用意しておき、画面に描画される面積に応じて使い分ける
 
 という手法のことです。
+
+<p align="center">
+<img src="images/tips_02_mipmap.jpg" width="50%" />
+</p>
 
 GPUは描画の効率化のため、テクスチャを小さく表示する場合でも実際に画像を縮小したりはせず、単純にそれらしい位置にあるテクセルを取得して表示します。
 
@@ -559,7 +567,11 @@ void glCompressedTexSubImage2D(バインドターゲット, ミップマップ�
 
 ミップマップのレベルは0から始まります。レベル0は元サイズの画像を意味します。
 
-注意点として、`glCompressedTexSubImage2D`に指定するピクセル形式は、`glTextureStorage2D`に指定したピクセル形式と同じでなくてはなりません。圧縮形式の画像データは、そのままGPUメモリに配置できるように設計されているためです。
+注意するべきなのは、
+
+>`glCompressedTexSubImage2D`に指定するピクセル形式は`glTextureStorage2D`に指定したピクセル形式と同じでなくてはならない。
+
+ということです。圧縮形式の画像データは、そのままGPUメモリに配置できるように設計されているためです。
 
 対して、無圧縮の画像データの場合はGPUメモリの構造とは無関係なことが多いです。そのため、GPUメモリを確保する`glTextureStorage2D`と、画像データをGPUメモリにコピーする`glTextureSubImage2D`は、ピクセル形式の指定方法が異なっています。
 
@@ -598,7 +610,7 @@ OpenGLのデフォルトでは最大ミップマップレベルが1000に設定�
 
 また、ミップマップを有効にするには、ミップマップ用の縮小フィルタを指定しなくてはなりません。これは、「ミップマップ間の補間方法」を指定する必要があるためです。
 
-#### ミップマップ間の線形補間
+#### 【ミップマップ間の線形補間】
 
 GPUは画像の表示面積に応じて、自動的に利用するミップマップを選択します。ただし、ミップマップは1/2単位のサイズしか存在しないため、ほとんどの場合でちょうどよい大きさのテクスチャを選ぶことはできません。
 
@@ -618,17 +630,18 @@ GPUは画像の表示面積に応じて、自動的に利用するミップマ�
 | 線形補間の対象 | 品質 | 速度 |
 |:--|:--|:--|
 | テクスチャ | 違いが分かりやすい | 1枚のテクスチャで完結するので、ほとんど遅くならない |
-| ミップマップ | 違いが分かりにくい | 2枚のミップマップを読む必要があるため、少し遅くなる |
+| ミップマップ | 違いがあまり分からない | 2枚のミップマップを読む必要があるため、少し遅くなる |
 
 2023年現在のGPUは、ミップマップを線形補間してもほとんど速度は低下しません。そのため、通常は`GL_LINEAR_MIPMAP_LINEAR`が使われます(スマホ等では他の補間方法も検討するべきです)。
 
-また、ミップマップがない(レベル0だけ)の場合、ミップマップ指定のない`GL_LINEAR`か`GL_NEAREST`のどちらかを設定します。
+また、ミップマップがない(レベル0だけ)の場合、ミップマップ指定のない`GL_LINEAR`か
+`GL_NEAREST`のどちらかを設定します。
 
 なお、拡大フィルタは「レベル0をさらに拡大する場合」に使われるものです。そのため、選べるのは`GL_LINEAR`と`GL_NEAREST`の2つだけです。
 
 関数の最後では、作成したテクスチャの管理番号を返しています。これで、`LoadDDS`関数は完成です。
 
-### 1.7 TextureコンストラクタをDDSファイルに対応させる
+### 1.8 TextureコンストラクタをDDSファイルに対応させる
 
 作成した`LoadDDS`関数を使って、`Texture`クラスのコンストラクタをDDSに対応させましょう。`Texture.cpp`を開き、`DDS.h`をインクルードしてください。
 
@@ -659,8 +672,8 @@ GPUは画像の表示面積に応じて、自動的に利用するミップマ�
 +        (usage == Usage::for3DLinear) || (usage == Usage::forGltfLinear);
 +      tex = LoadDDS(filename, filterMode, useLinearColorSpace);
 +      if (tex) {
-+        this->width = width;
-+        this->height = height;
++        glGetTextureLevelParameteriv(tex, 0, GL_TEXTURE_WIDTH, &width);
++        glGetTextureLevelParameteriv(tex, 0, GL_TEXTURE_HEIGHT, &height);
 +        LOG("%sを読み込みました", filename.c_str());
 +      }
 +      return;
@@ -677,7 +690,17 @@ GPUは画像の表示面積に応じて、自動的に利用するミップマ�
 
 >大文字に変換する`toupper`(トゥ・アッパー)関数もあります。
 
-### 1.8 GltfMeshをDDSファイルに対応させる
+`glGetTextureLevelParameteriv`(ジーエル・ゲット・テクスチャ・レベル・パラメータ・アイ・ブイ)関数は、テクスチャの情報を取得する関数のひとつです。
+
+<p><code class="tnmai_code"><strong>【書式】</strong><br>
+void glGetTextureLevelParameteriv(テクスチャの管理番号,<br>
+&emsp;ミップマップレベル, 取得する情報を表すマクロ名, 情報を格納する変数のアドレス);
+</code></p>
+
+>この関数の詳しい使い方は、以下のURLを参照してください。<br>
+>`https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGetTexLevelParameter.xhtml`
+
+### 1.9 GltfMeshをDDSファイルに対応させる
 
 GLtfMeshでは、画像ファイルの拡張子を強制的に`.tga`に変換しています。このままではDDSファイルを読み込めないため、「DDSファイルがある場合は拡張子を`.dds`に、それ以外は拡張子を`.tga`にする」という機能を追加します。
 
@@ -712,7 +735,7 @@ bool filesystem::exists(パス名);
 
 「パス名」が存在すれば`true`、存在しなければ`false`を返します。この関数を使えば、ファイルの有無によって処理を分けることができます。
 
-### 1.9 DDSファイルを使ってみる
+### 1.10 DDSファイルを使ってみる
 
 早速DDSファイルを読み込んで使ってみましょう。まずはDDSファイルを作成します。Visual Studioの画像エディタを使うと、画像ファイルをDDSファイルに変換することができます。
 
@@ -721,7 +744,7 @@ bool filesystem::exists(パス名);
 次に、ファイルメニューにある「名前をつけてgrassHR2_02.tgaを保存」を選択します。保存ダイアログボックスが開きますので、下の方にある「ファイルの種類」をDDSに変更して保存してください。
 
 <p align="center">
-<img src="images/tips_02_save_dds_file.png" width="66%" />
+<img src="images/tips_02_save_dds_file.png" width="70%" />
 </p>
 
 このとき、ファイルの拡張子は自動的に「.dds」に変更されます。「保存」ボタンをクリックしてファイルを保存してください。これでDDSファイルを作成することができました。
@@ -778,11 +801,15 @@ MTLファイルを変更したら、プログラムをビルドして実行し�
 <strong>【課題01】</strong>
 ゲームに使用する3Dモデルの画像ファイルを、できるだけ多くDDSに置き換えなさい。不透明な画像はDXGI_FORMAT_BC1_UNORM, 半透明を含む画像はDXgI_FORMAT_BC3_UNORMを使うとよいでしょう。
 ただし、法線マップはTGAのままにしたほうがよいでしょう。DXT形式はカラー画像用に開発されたため、法線マップに使うと大きく品質が低下するからです(試しにやってみるのはありです)。
+
 補足: DXTを発展させたBC形式では、法線マップ用にBC5という形式が追加されています。これはXYの2要素をDXT5のアルファ圧縮と同じ方法で圧縮したものです。ZはXY要素から逆算できるため含まれません。
 </pre>
+
+<div style="page-break-after: always"></div>
 
 >**【1章のまとめ】**
 >
 >* DXT形式は、GPUが直接扱える圧縮形式。DXT1, DXT3, DXT5の3種類がある。不透明画像にはDXT1、半透明を含む画像にはDXT5が使われる。DXT3はあまり使われない。
 >* DXT形式を使うと、32ビット画像データのサイズを1/8～1/4に削減できる。必要なメモリが少なくなるため、より多くの画像を読み込めるようになり、描画速度も向上する。
 >* DXT形式はカラー画像用に開発された。そのため、法線マップに使うと精度が低下する(使えないわけではない)。
+>* ミップマップを使うと描画品質が向上し、さらに描画にかかる時間も短縮できる。その代わり、1.33倍のメモリ容量が必要になる。
