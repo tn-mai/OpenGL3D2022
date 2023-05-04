@@ -805,32 +805,78 @@ void glGenerateTextureMipmap(テクスチャの管理番号);
 
 これでスカイボックスが表示されるはずなので、あとはプログラムを実行して背景に画像が表示されることを確認するだけです。ただ、カメラを動かさないと、スカイボックスの効果がわかりにくいと思います。
 
-そこで、`MainGameScene`にカメラを動かす機能を追加しましょう。`MainGameScene.cpp`を開き、`Update`メンバ関数の定義に次のプログラムを追加してください。
+そこで、カメラを動かす機能を追加しましょう。プロジェクトの`Src/Component`フォルダに`MoveController.h`(ムーブ・コントローラ・エイチ)という名前のヘッダファイルを追加してください。
+
+追加したヘッダファイルを開き、次のプログラムを追加してください。
 
 ```diff
- */
- void MainGameScene::Update(Engine& engine, float deltaTime)
- {
-+  // カメラ操作
-+  auto cameraObject = engine.GetMainCameraObject();
-+  if (engine.GetKey(GLFW_KEY_W)) {
-+    cameraObject->rotation.x += deltaTime;
-+  }
-+  if (engine.GetKey(GLFW_KEY_S)) {
-+    cameraObject->rotation.x -= deltaTime;
-+  }
-+  if (engine.GetKey(GLFW_KEY_A)) {
-+    cameraObject->rotation.y += deltaTime;
-+  }
-+  if (engine.GetKey(GLFW_KEY_D)) {
-+    cameraObject->rotation.y -= deltaTime;
-+  }
++/**
++* @file MoveController.h
++*/
++#ifndef MOVECONTROLLER_H_INCLUDED
++#define MOVECONTROLLER_H_INCLUDED
++#include "../Component.h"
++#include "../Engine.h"
 +
-   // カプセルを動かす
-   GameObjectPtr p = capsule;
++/**
++* 移動制御コンポーネント
++*/
++class MoveController : public Component
++{
++public:
++  MoveController() = default;
++  virtual ~MoveController() = default;
++
++  virtual void Update(GameObject& gameObject, float deltaTime) override
++  {
++    const Engine* engine = gameObject.engine;
++
++    // 向きを回転
++    if (engine->GetKey(GLFW_KEY_UP)) {
++      gameObject.rotation.x += deltaTime;
++    }
++    if (engine->GetKey(GLFW_KEY_DOWN)) {
++      gameObject.rotation.x -= deltaTime;
++    }
++    if (engine->GetKey(GLFW_KEY_LEFT)) {
++      gameObject.rotation.y += deltaTime;
++    }
++    if (engine->GetKey(GLFW_KEY_RIGHT)) {
++      gameObject.rotation.y -= deltaTime;
++    }
++  }
++};
++
++#endif // MOVECONTROLLER_H_INCLUDED
 ```
 
-プログラムが書けたらビルドして実行してください。WASDキーでカメラを回転させて、すべての方向にキューブマップテクスチャの画像が表示されていたら成功です。
+次に`MainGameScene.cpp`を開き、`MoveController.h`をインクルードしてください。
+
+```diff
+ * @file MainGameScene.cpp
+ */
+ #include "MainGameScene.h"
++#include "Component/MoveController.h"
+ #include "Component/MeshRenderer.h"
+ #include "Component/GltfMeshRenderer.h"
+```
+
+続いて`Initialize`メンバ関数の定義に、次のプログラムを追加してください。
+
+```diff
+ {
+   engine.ClearGameObjectList();
+   engine.ClearUILayers();
++
++  // カメラに移動制御コンポーネントを追加
++  auto cameraObject = engine.GetMainCameraObject();
++  cameraObject->AddComponent<MoveController>();
+
+   // glTF表示テスト
+   auto gltf = engine.Create<GameObject>("glTF Test");
+```
+
+プログラムが書けたらビルドして実行してください。矢印キーでカメラを回転できます。カメラをさまざまな方向へ向けて、すべての方向にキューブマップテクスチャの画像が表示されていることを確認してください。
 
 <p align="center">
 <img src="images/tips_04_result_0.jpg" width="45%" />
