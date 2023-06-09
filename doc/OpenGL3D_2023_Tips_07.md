@@ -698,6 +698,29 @@ D = √(K / L(min) - 1)       ...(2)
  /**
 ```
 
+それから、`Light`コンポーネントにも影響半径を追加します。プロジェクトの`Src/Component`フォルダにある`Light.h`を開き、次のプログラムを追加してください。
+
+```diff
+   Type type = Type::PointLight; // ライトの種類
+   VecMath::vec3 color = { 1, 1, 1 }; // ライトの色
+   float intensity = 1; // ライトの明るさ
++  float radius = 0; // 影響半径(0=自動計算)
+ };
+
+ #endif // COMPONENT_LIGHT_H_INCLUDED
+```
+
+続いて`Light.cpp`を開き、`Update`メンバ関数の定義に次のプログラムを追加してください。
+
+```diff
+   Engine* engine = gameObject.engine;
+
+   // ライトデータを追加
+-  engine->AddPointLightData(gameObject.position, color * intensity);
++  engine->AddPointLightData(gameObject.position, color * intensity, radius);
+ }
+```
+
 これで、意図的に影響半径を小さくしたり、大きくすることが可能になりました。例えば、マップのシンボル的な光源は大きく、火花のようにすぐ消えるエフェクトは小さくすることで、描画効率が向上します。
 
 ### 1.13 LightDataBlock構造体を定義する
@@ -1064,16 +1087,56 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 `standard_3D.frag`を開き、次のプログラムを追加してください。
 
 ```diff
+   ambient += specularAmbient * specularRatio;
+
+   outColor.rgb = (diffuse + specular) * shadow + ambient;
++
++#if 1
++  // jetカラーマップによってライト数を表示
++  uvec2 tileId = uvec2(gl_FragCoord.xy * tileSize);
++  uvec2 range = lightIndexRanges[tileId.y][tileId.x];
++  float level = min(float(range.y) / 100, 1);
++  vec3 jet = vec3(
++    level < 0.7 ? 4 * level - 1.5 : 4.5 - level * 4,
++    level < 0.5 ? 4 * level - 0.5 : 3.5 - level * 4,
++    level < 0.3 ? 4 * level + 0.5 : 2.5 - level * 4);
++  outColor.rgb = mix(outColor.rgb, jet, 0.5);
++#endif
+ }
 ```
+
+「jet(ジェット)カラーマップ」は画像化された情報を視覚化する手法の一つです。jetカラーマップによって、0～1の値を色のグラデーションとして表示できます。
+
+>上記のコードは以下のURLにある`glsl/MATLAB_jet.frag`を参照しました<br>
+>`https://github.com/kbinani/colormap-shaders`
+
+プログラムが書けたらビルドして実行してください。タイルごとに青、緑、黄、赤のグラデーションが表示されていたら成功です。
+
+ライト数が少ないタイルは青で表示され、ライト数が増えるにつれて水色、緑、黄色、赤、暗赤色と変化します。暗赤色のタイルは100個前後のライトが影響していることになります。
+
+<p align="center">
+<img src="images/tips_07_result_3.jpg" width="45%" />
+</p>
 
 <pre class="tnmai_assignment">
 <strong>【課題01】</strong>
-<code>MainGameScene.cpp</code>で呼び出している<code>AddPointLight</code>にさまざまな半径を指定して、見た目と処理速度の変化を確認しなさい。
+<code>MainGameScene.cpp</code>で作成している<code>Light</code>コンポーネントの<code>intensity</code>メンバ変数の値を3や10に変更して、カラーマップがどのように変化するかを確認しなさい。
+</pre>
+
+<pre class="tnmai_assignment">
+<strong>【課題02】</strong>
+インテンシティを5に戻し、<code>Light</code>コンポーネントの<code>radius</code>メンバ変数に10や100といった値を指定して、カラーマップがどのように変化するかを確認しなさい。
+</pre>
+
+<pre class="tnmai_assignment">
+<strong>【課題03】</strong>
+インテンシティと影響半径を元に戻し、jetカラーマップを作成するプログラムの<code>#if 1</code>の部分を<code>#if 0</code>にして、jetカラーマップを非表示にしなさい。
 </pre>
 
 >**【まとめ】**<br>
 >
 >* 画面を小さなタイル状の領域に分割して描画することを「タイル・ベースド・レンダリング(TBR)」という。
+>* タイルは3D空間では錘台形(フラスタム)になる。
 >* 個々のライトが目に見える影響を及ぼす半径には限界があるため、タイル単位でライトを選択することでライティングの計算量を減らすことができる。
 >* 分割数が少なすぎるとタイルのライト数が増加するためTBRの恩恵が少なくなる。逆に多すぎるとタイルの計算に時間がかかり、やはりTBRの恩恵が少なくなる。TBRを最大限に活かすには、適切な分割数を選択する必要がある。
->* タイルは3D空間では錘台形(フラスタム)になる。
+>* 各タイルの状態を視覚的に調べるには「カラーマップ」を使う。なお、このような強度を視覚的に表す手法は「ヒート・マップ」と呼ばれる。
