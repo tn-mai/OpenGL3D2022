@@ -664,6 +664,42 @@ D = √(K / L(min) - 1)       ...(2)
 
 式(2)によって、明るさが`L(min)`になる距離`D`を求めることができます。この`D`がライトの到達半径になります。
 
+次に`Engine.h`を開き、`Engine`クラス定義にある`AddPointLight`メンバ関数の宣言を次のように変更してください。
+
+```diff
+   void SetBloomStrength(float s) { bloomStrength = s; }
+
+   // ライトの操作
+   void AddPointLightData(const VecMath::vec3& position,
+-    const VecMath::vec3& color);
++    const VecMath::vec3& color, float radius = 0);
+
+   // パーティクルエミッタの操作
+   ParticleEmitterPtr AddParticleEmitter(
+```
+
+続いて`Engine.cpp`を開き、`AddPointLight`メンバ関数の定義を次のように変更してください。
+
+```diff
+ * ポイントライトのデータをライトバッファに追加する
+ *
+ * @param position ライトの座標
+ * @param color    ライトの色および明るさ
++* @param radius   ライトの到達半径(0=自動計算)
+ */
+-void Engine::AddPointLightData(const vec3& position, const vec3& color)
++void Engine::AddPointLightData(const vec3& position, const vec3& color
++  float radius)
+ {
+-  lightBuffer->AddPointLight(position, color);
++  lightBuffer->AddPointLight(position, color, radius);
+ }
+
+ /**
+```
+
+これで、意図的に影響半径を小さくしたり、大きくすることが可能になりました。例えば、マップのシンボル的な光源は大きく、火花のようにすぐ消えるエフェクトは小さくすることで、描画効率が向上します。
+
 ### 1.13 LightDataBlock構造体を定義する
 
 次にライトインデックス配列を作成します。それなりのコード量になるので、3つのプライベートメンバ関数に分けて定義することにします。`LightBuffer.h`を開き、`LightBuffer`クラスのプライベートメンバに次のプログラムを追加してください。
@@ -1014,12 +1050,26 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 >式については以下のURLを参照:<br>
 >`https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf`
 
-プログラムが書けたらビルドして実行してください。カメラを動かしたとき、鏡面反射によるちらつきがなくなっていれば成功です。
+プログラムが書けたらビルドして実行してください。カメラを動かしたとき、鏡面反射が出たり消えたりしなくなっていれば成功です。
 
 <p align="center">
 <img src="images/tips_07_result_2.jpg" width="45%" /><br>
 [全体的に鏡面反射が弱くなっている]
 </p>
+
+### 1.19 タイルごとのライト数を確認する
+
+処理速度が向上したと言われても、見た目ではあまり違いが分からないかもしれません。そこで、シェーダに手を加えて「タイルごとのライト数を視覚化」してみましょう。
+
+`standard_3D.frag`を開き、次のプログラムを追加してください。
+
+```diff
+```
+
+<pre class="tnmai_assignment">
+<strong>【課題01】</strong>
+<code>MainGameScene.cpp</code>で呼び出している<code>AddPointLight</code>にさまざまな半径を指定して、見た目と処理速度の変化を確認しなさい。
+</pre>
 
 >**【まとめ】**<br>
 >
