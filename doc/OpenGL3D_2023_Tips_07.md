@@ -12,16 +12,11 @@
 
 ### 1.1 全てのライトが見た目に影響するとは限らない
 
-<p align="center">
-<img src="images/tips_07_tiled_light_culling.jpg" width="50%" /><br>
-https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
-</p>
-
 大量のライトを扱えるようになったのはいいのですが、そのぶん処理に時間がかかるようになりました。フラグメントを1つ描画するのに100個のライトを処理しなくてはならない以上、時間がかかるのは当然のことです。
 
 しかし、ゲーム画面をよく観察してみると、全てのライトが全てのフラグメントに影響しているようには見えません。どちらかというと、近くにあるライト以外は何の影響もないように見えるのではないでしょうか。
 
-その感覚は正しいものです。例えば、夜は星々や月の光が地上を照らしています。しかし昼間は星や月の光を感じることはありません。では、昼は、星や月から光が届いていないのでしょうか？
+その感覚は正しいものです。例えば、夜は星々や月の光が地上を照らしています。しかし昼間は星や月の光を感じることはありません。では、昼は、星や月の光は届いていないのでしょうか？
 
 もちろん、そんなわけはありません。昼間でも間違いなくそれらの光は地上に届いています。しかし、太陽の光が強力すぎるため、人間の目では見分けられないのです。
 
@@ -29,9 +24,14 @@ https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
 
 ただ、影響範囲を設定しただけでは少ししか処理時間を減らせません。結局100個のライトについて、フラグメントが範囲内かどうかを調べなくてはならないからです。
 
-こうした問題でよく使われるのは、空間を格子状に分割して、分割した小さな空間ごとに処理を分ける方法です。今回は画面を8x4個に区切り、個々の空間に影響するライトのリストを作ることにします。
+こうした問題でよく使われるのは、空間を格子状に分割して、分割した小さな空間ごとに処理を分ける方法です。分割した空間に影響しないライトは描画処理から除外されるため、処理時間を減らすことができます。
 
-分割した空間に影響しないライトは描画処理から除外されるため、処理時間を減らすことができます。画面を分割したそれぞれの領域を「タイル」または「ブロック」と呼びます。
+<p align="center">
+<img src="images/tips_07_tiled_light_culling.jpg" width="50%" /><br>
+https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
+</p>
+
+画面を分割したそれぞれの空間を「タイル」と呼びます。今回は画面を32x18個のタイルに分割し、個々の空間に影響するライトのリストを作ることにします。この分割数は、1920x1080と1280x720のどちらの画面サイズでも等分できる適度な数として選びました。
 
 このように、画面をタイル状に分割して描画を行う技法は、`Tile Based Rendering`(タイル・ベースド・レンダリング), TBRと呼ばれています。
 
@@ -41,7 +41,12 @@ https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
 
 ### 1.2 視錐台を定義する
 
-画面に描画される領域は、カメラから見える範囲が錘台形(すいだいけい)をしていることから「視錐台(しすいだい)」と呼ばれます。今回のプログラムでは視錐台をタイル状に分割し、それぞれのタイルについてライトの影響の有無を判定します。
+画面に描画される領域は、カメラから見える範囲が錘台形(すいだいけい)をしていることから「視錐台(しすいだい)」と呼ばれます。今回のプログラムでは視錐台をタイルに分割し、それぞれのタイルについてライトの影響の有無を判定します。
+
+<p align="center">
+<img src="images/tips_07_tiled_frustum_3D.png" width="33%" />&emsp;<img src="images/tips_07_tiled_frustum_2D.png" width="44%" /><br>
+[左=タイル化した視錐台&emsp;&emsp;右=タイル化した視錐台を上から見た図]
+</p>
 
 ところで、「視錐台をタイル状に分割ししてできる小さな視錐台」では呼びにくいので、今後は「サブ視錐台」と呼ぶことにします。そして、分割前の大きな視錐台は「メイン視錐台」と呼ぶことにします。
 
@@ -391,25 +396,27 @@ https://www.3dgep.com/forward-plus/
 
 ### 1.9 LightDataBlockにタイルデータを追加する
 
-球とフラスタムの交差判定を行うことで、ライトがどのタイルに影響するかを調べることができます。あとは影響するライトをSSBOに記録する方法を考えるだけです。これは次のようなデータ構造によって実現できます。
+球とフラスタムの交差判定を行うことで、ライトがどのタイルに影響するかを調べることができます。あとは、影響するライトをSSBOに記録する方法を考えるだけです。これは次のようなデータ構造によって実現できます。
 
 <p align="center">
-<img src="images/tips_07_tiled_shading_data.png" width="50%" /><br>
+<img src="images/tips_07_tiled_shading_data.png" width="66%" /><br>
 https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 </p>
 
 この図には3つの配列があります。それぞれの配列の意味は次のとおりです。
 
-* `Global Light List`: 画面に影響するすべてのライトの配列
-* `Tile Light Index Lists`: タイルに影響するライトインデックス配列を、隙間なく繋いだ配列
-* `Light Grid`: `Tile Light Index Lists`内の、各タイルが使用する領域の始点と数
+| 配列名 | 説明 |
+|:------:|:-----|
+| `Global Light List`      | 画面に影響するすべてのライトの配列 |
+| `Tile Light Index Lists` | タイルに影響するライトインデックス配列を、隙間なく<br>繋いだ配列 |
+| `Light Grid`             | `Tile Light Index Lists`内の、各タイルが使用する<br>領域の始点と数 |
 
 フラグメントシェーダでは次の手順でタイルに影響するライトを取得し、明るさを計算します。
 
-1. 自分(フラグメント)が属するタイルを求める。
-2. `Light Grid`から`Tile Light Index Lists`配列内の始点とインデックス数を取得する。
-3. 始点とインデックス数を利用して、`Global Light List`からライトデータを取得。
-4. forで範囲内のすべてのライトデータについて明かるさを計算。
+>1. 自分(フラグメント)が属するタイルを求める。
+>2. `Light Grid`から`Tile Light Index Lists`内の始点とインデックス数を取得。
+>3. 始点とインデックス数を利用して、`Global Light List`からライトデータを取得。
+>4. forで範囲内のすべてのライトデータについて明かるさを計算。
 
 まず、3つの配列をフラグメントシェーダの`LightDataBlock`に追加します。ライトのインデックスを格納するメンバの名前は`lightIndices`(ライト・インディシーズ)、ライトの数を格納するメンバの名前は`lightCounts`(ライト・カウンツ)とします。
 
@@ -617,8 +624,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
    void BeginUpdate();
    void AddPointLight(
 -    const VecMath::vec3& position, const VecMath::vec3& color);
-+    const VecMath::vec3& position, const VecMath::vec3& color,
-+    float radius = 0);
++    const VecMath::vec3& position, const VecMath::vec3& color, float radius = 0);
    void EndUpdate(const Frustum& frustum,
      const VecMath::mat4& matView, const VecMath::vec2& screenSize);
 ```
@@ -632,8 +638,8 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
  * @param color    ライトの色および明るさ
 +* @param radius   ライトの到達半径(0=自動計算)
  */
- void LightBuffer::AddPointLight(const vec3& position, const vec3& color,
-   float radius)
+-void LightBuffer::AddPointLight(const vec3& position, const vec3& color,
++void LightBuffer::AddPointLight(const vec3& position, const vec3& color, float radius)
  {
    if (isUpdating) {
 +    // ライトの到達半径を計算
@@ -652,15 +658,13 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 
 この式から光の到達距離を求めるには、まず十分に暗いとみなす明るさ`L(min)`を決めます。そして、`L(min)`を`L`に代入することで`D`について式を解きます。
 
-```txt
-L(min) = K / (1 + D^2)      ...(1)
-L(min) * (1 + D^2) = K
-L(min) + L(min) * D^2 = K
-L(min) * D^2 = K - L(min)
-D^2 = (K - L(min)) / L(min)
-D^2 = K / L(min) - 1
-D = √(K / L(min) - 1)       ...(2)
-```
+&emsp;L(min) = K / (1 + D^2)&emsp;&emsp;&emsp;...(1)<br>
+&emsp;L(min) * (1 + D^2) = K<br>
+&emsp;L(min) + L(min) * D^2 = K<br>
+&emsp;L(min) * D^2 = K - L(min)<br>
+&emsp;D^2 = (K - L(min)) / L(min)<br>
+&emsp;D^2 = K / L(min) - 1<br>
+&emsp;D = √(K / L(min) - 1)&emsp;&emsp;&emsp;...(2)<br>
 
 式(2)によって、明るさが`L(min)`になる距離`D`を求めることができます。この`D`がライトの到達半径になります。
 
@@ -688,8 +692,7 @@ D = √(K / L(min) - 1)       ...(2)
 +* @param radius   ライトの到達半径(0=自動計算)
  */
 -void Engine::AddPointLightData(const vec3& position, const vec3& color)
-+void Engine::AddPointLightData(const vec3& position, const vec3& color
-+  float radius)
++void Engine::AddPointLightData(const vec3& position, const vec3& color, float radius)
  {
 -  lightBuffer->AddPointLight(position, color);
 +  lightBuffer->AddPointLight(position, color, radius);
@@ -957,7 +960,8 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 +
 +      // 容量不足なら構築を終了する
 +      if (lightIndexCount >= maxLightIndexCount) {
-+        LOG_WARNING("ライトインデックス配列が不足しています(サイズ=%d)", maxLightIndexCount);
++        LOG_WARNING("ライトインデックス配列が不足しています(サイズ=%d)",
++          maxLightIndexCount);
 +        break;
 +      }
 +    }
