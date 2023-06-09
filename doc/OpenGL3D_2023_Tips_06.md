@@ -673,7 +673,7 @@ GLSLにはポインタや参照はありません。そのかわり、引数に`
 +  // ライトコンポーネントの実験
 +  for (int i = 0; i < 100; ++i) {
 +    // ライトを地面(20x20)に2m間隔で配置
-+    lightObject = engine.Create<GameObject>("light");
++    auto lightObject = engine.Create<GameObject>("light");
 +    lightObject->position = {
 +      (i % 10) * 2.0f - 9,
 +      1,
@@ -687,7 +687,7 @@ GLSLにはポインタや参照はありません。そのかわり、引数に`
 +      (i & 0b010) * 0.7f * 0.5f + 0.3f,
 +      (i & 0b100) * 0.7f * 0.25f + 0.3f };
 +
-+    // ライトの位置が分かるように球体を配置
++    // ライトの位置と色が分かるように球体を配置
 +    auto renderer = lightObject->AddComponent<MeshRenderer>();
 +    renderer->mesh = engine.LoadOBJ("Sphere");
 +    renderer->scale = vec3(0.1f);
