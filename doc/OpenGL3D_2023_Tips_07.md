@@ -4,13 +4,19 @@
 
 ## 習得目標
 
+* 「視錐台(しすいだい)」の形状について説明できる。
+* 視錐台と球体の交差判定の方法を説明できる。
 * 「タイル・ベースド・レンダリング(TBR)」の仕組みと利点について説明できる。
-* 視錐台の交差判定方法について説明できる。
 * ライトの影響半径を制限する必要性を説明できる。
 
-## 1. 空間分割
+## 1. 視錐台の交差判定
 
 ### 1.1 全てのライトが見た目に影響するとは限らない
+
+<p align="center">
+<img src="images/tips_07_tiled_light_culling.jpg" width="50%" /><br>
+https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
+</p>
 
 大量のライトを扱えるようになったのはいいのですが、そのぶん処理に時間がかかるようになりました。フラグメントを1つ描画するのに100個のライトを処理しなくてはならない以上、時間がかかるのは当然のことです。
 
@@ -24,12 +30,7 @@
 
 ただ、影響範囲を設定しただけでは少ししか処理時間を減らせません。結局100個のライトについて、フラグメントが範囲内かどうかを調べなくてはならないからです。
 
-こうした問題でよく使われるのは、空間を格子状に分割して、分割した小さな空間ごとに処理を分ける方法です。分割した空間に影響しないライトは描画処理から除外されるため、処理時間を減らすことができます。
-
-<p align="center">
-<img src="images/tips_07_tiled_light_culling.jpg" width="50%" /><br>
-https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
-</p>
+こうした問題でよく使われるのは、本節の最初に掲載した画像のように空間を格子状に分割し、分割した小さな空間ごとに処理を分ける方法です。分割した空間に影響しないライトは描画処理から除外されるため、処理時間を減らすことができます。
 
 画面を分割したそれぞれの空間を「タイル」と呼びます。今回は画面を32x18個のタイルに分割し、個々の空間に影響するライトのリストを作ることにします。この分割数は、1920x1080と1280x720のどちらの画面サイズでも等分できる適度な数として選びました。
 
@@ -42,6 +43,8 @@ https://github.com/GPUOpen-LibrariesAndSDKs/ForwardPlus11
 ### 1.2 視錐台を定義する
 
 画面に描画される領域は、カメラから見える範囲が錘台形(すいだいけい)をしていることから「視錐台(しすいだい)」と呼ばれます。今回のプログラムでは視錐台をタイルに分割し、それぞれのタイルについてライトの影響の有無を判定します。
+
+>錐台形はピラミッドの上の部分を水平に切り落としたような図形です。
 
 <p align="center">
 <img src="images/tips_07_tiled_frustum_3D.png" width="33%" />&emsp;<img src="images/tips_07_tiled_frustum_2D.png" width="44%" /><br>
@@ -394,7 +397,17 @@ https://www.3dgep.com/forward-plus/
 
 これで、球とメインフラスタム、球とサブフラスタムの交差判定は完成です。
 
-### 1.9 LightDataBlockにタイルデータを追加する
+>**【1章のまとめ】**
+>
+>* 3Dのカメラに映る範囲のことを「視錐台(しすいだい)」という。視錐台は「錘台形(すいだいけい)」という、ピラミッドの上端を水平に切り落としたような図形。
+>* 視錐台は6つの平面で構成される。ライトの影響範囲を球体とすると、ライトが視錐台に影響するかどうかは「球体と平面の交差判定」によって調べることができる。
+>* 視錐台をビュー座標系で定義することで、Z軸方向の判定を簡単にすることができる。
+
+<div style="page-break-after: always"></div>
+
+## 2. タイル単位のライティング
+
+### 2.1 LightDataBlockにタイルデータを追加する
 
 球とフラスタムの交差判定を行うことで、ライトがどのタイルに影響するかを調べることができます。あとは、影響するライトをSSBOに記録する方法を考えるだけです。これは次のようなデータ構造によって実現できます。
 
@@ -447,7 +460,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
  };
 ```
 
-### 1.10 ComputePointLight関数をタイルに対応させる
+### 2.2 ComputePointLight関数をタイルに対応させる
 
 次に、追加した配列を使ってライトの明るさを計算します。`ComputePointLight`関数を次のように変更してください。
 
@@ -495,7 +508,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 
 フラグメントのスクリーン座標は`gl_FragCoord`という変数で取得できます。スクリーン座標をタイルサイズで割れば、フラグメントを含むタイルのインデックスが得られます。除算を避けるため、`tileSize`変数には逆数を代入する予定です。
 
-### 1.11 LightBuffer::EndUpdate関数に引数を追加する
+### 2.3 LightBuffer::EndUpdate関数に引数を追加する
 
 次はゲームエンジンをタイルに対応させます。今回の本命はこちら側です。最初に、`Frustum`型の先行宣言を追加します。`LightBuffer.h`を開き、次のプログラムを追加してください。
 
@@ -512,7 +525,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 
 ライトインデックス配列の作成は、SSBOへデータをコピーする直前に行うことにします。SSBOへのコピーは`EndUpdate`メンバ関数で行っているので、作成機能もこの関数に追加しましょう。
 
-ライトインデックス配列の作成にはフラスタムとビュー行列が必要となります。そこで、この2つを`EndUpdate`メンバ関数の引数にします。`EndUpdate`メンバ関数の宣言を次のように変更してください。
+ライトインデックス配列の作成には「フラスタム」、「ビュー行列」、「ウィンドウサイズ」が必要となります。そこで、この3つを`EndUpdate`メンバ関数の引数にします。`EndUpdate`メンバ関数の宣言を次のように変更してください。
 
 ```diff
    void BeginUpdate();
@@ -520,7 +533,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
      const VecMath::vec3& position, const VecMath::vec3& color);
 -  void EndUpdate();
 +  void EndUpdate(const Frustum& frustum,
-+    const VecMath::mat4& matView, const VecMath::vec2& screenSize);
++    const VecMath::mat4& matView, const VecMath::vec2& windowSize);
    void SwapBuffers();
 
    // SSBOのバインド
@@ -556,7 +569,23 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 
 「ビュー行列」は、ライトの座標をビュー座標系に変換するために使います。「画面の大きさ」はシェーダにコピーする`LightDataBlock`の`tileSize`(タイル・サイズ)を計算するために使います。
 
-引数を変更したので、`EndUpdate`を呼び出しているプログラムも修正しなくてはなりません。`Engine.cpp`を開き、`Frustum.h`をインクルードしてください。
+引数を変更したので、`EndUpdate`を呼び出しているプログラムも修正しなくてはなりません。まず`Bind`メンバ関数の定義を次のように変更してください。
+
+```diff
+   // EndUpdateが呼ばれていない場合への対策(おそらくバグ)
+   if (isUpdating) {
+     LOG_WARNING("EndUpdateが呼ばれていません");
+-    EndUpdate();
+   }
+ 
+   ssbo->Bind(index, 0, ssbo->GetSize());
+```
+
+`Bind`の引数に視錐台やビュー行列を追加するのは使いにくくなるだけなので、`EndUpdate`呼び出しは削除します。ここで`EndUpdate`を呼び出していたのは、コード中で「`EndUpdate`が呼び出されていない」というバグがあってもプログラムを動作させるためです。
+
+しかし、ここで`EndUpdate`が呼び出された場合、ほぼ間違いなくバグが原因です。ということは、結局はバグ修正が必要なわけで、`EndUpdate`を呼び出さないようにしても大きな問題にはならないと考えられます。
+
+次に`Engine`クラスの`UpdateGameObject`メンバ関数を変更します。`Engine.cpp`を開き、`Frustum.h`をインクルードしてください。
 
 ```diff
  #include "GltfMesh.h"
@@ -567,7 +596,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
  #include "Component/MeshRenderer.h"
 ```
 
-次に`UpdateGameObject`メンバ変数の定義を次のように変更してください。
+次に、`UpdateGameObject`メンバ変数の定義を次のように変更してください。
 
 ```diff
        e->Update(deltaTime);
@@ -582,13 +611,15 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 +    radians(camera->fovY), aspect, camera->near, camera->far);
 +  const auto frustum = CreateFrustum(matProj, camera->near, camera->far);
 +
-+  // ライトデータをGPUメモリにコピー
++  // TBR用のビュー行列を作成(乗算の順序がモデル行列と逆になることに注意)
 +  const mat4 matInvRotation =
 +    mat4::RotateZ(-cameraObject->rotation.z) *
 +    mat4::RotateX(-cameraObject->rotation.x) *
 +    mat4::RotateY(-cameraObject->rotation.y);
 +  const mat4 matView =
 +    matInvRotation * mat4::Translate(-cameraObject->position);
++
++  // ライトデータをGPUメモリにコピー
 -  lightBuffer->EndUpdate();
 +  lightBuffer->EndUpdate(*frustum, matView, GetWindowSize());
 }
@@ -600,7 +631,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 
 >「計算を逆にする」というのは「回転と平行移動を負にする」、「行列を掛ける順序を逆にする」の2つによって実現できます。また、`inverse`関数でも作成可能です。
 
-### 1.12 ライトの到達半径を設定する
+### 2.4 ライトの到達半径を設定する
 
 本来、ライトの光は無限の彼方にまで到達します。しかし、タイルベースドレンダリングではライティングの計算時間を減らすために、意図的に光が到達する半径を制限します。
 
@@ -626,7 +657,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 -    const VecMath::vec3& position, const VecMath::vec3& color);
 +    const VecMath::vec3& position, const VecMath::vec3& color, float radius = 0);
    void EndUpdate(const Frustum& frustum,
-     const VecMath::mat4& matView, const VecMath::vec2& screenSize);
+     const VecMath::mat4& matView, const VecMath::vec2& windowSize);
 ```
 
 続いて`LightBuffer.cpp`を開き、`AddPointLight`メンバ関数の定義を次のように変更してください。
@@ -726,74 +757,35 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 
 これで、意図的に影響半径を小さくしたり、大きくすることが可能になりました。例えば、マップのシンボル的な光源は大きく、火花のようにすぐ消えるエフェクトは小さくすることで、描画効率が向上します。
 
-### 1.13 LightDataBlock構造体を定義する
+### 2.5 LightDataBlockBuilderクラスを定義する
 
-次にライトインデックス配列を作成します。それなりのコード量になるので、3つのプライベートメンバ関数に分けて定義することにします。`LightBuffer.h`を開き、`LightBuffer`クラスのプライベートメンバに次のプログラムを追加してください。
+シェーダの`LightDataBlock`にいくつかのメンバを追加したため、単純に`LigthData`の配列をコピーするだけ、というわけにはいかなくなりました。
 
-```diff
-   void Bind(GLuint index);
-   void Unbind(GLuint index);
+そこで、C++プログラム側に`LightDataBlock`と同じメンバを持つ構造体を定義し、GPUに対してこの構造体をコピーするように変更します。構造体名は`LightDataBlock`として、シェーダ側のブロック名と合わせます。
 
- private:
-+  // タイルごとのライトインデックス配列の構築
-+  struct Range;
-+  struct LightDataBlock;
-+
-+  void RemoveIneffectiveLight(const Frustum& frustum,
-+    const VecMath::mat4& matView,
-+    std::vector<VecMath::vec3>& posView);
-+
-+  void BuildLightDataBlock(const Frustum& frustum,
-+    const std::vector<VecMath::vec3>& posView,
-+    LightDataBlock& lightDataBlock);
-+
-+  void BuildLightIndices(const SubFrustum& subFrustum,
-+    const std::vector<VecMath::vec3>& posView,
-+    uint32_t* lightIndices, uint32_t& lightIndexCount);
-+
-   // シェーダに送るライトデータ
-   struct LightData
-```
-
-`Range`(レンジ)構造体は、シェーダ側の`LightDataBlock`にある`lightIndexRanges`配列の`uvec2`型に相当します。実装詳細を公開する必要はないので、メンバ変数の引数にできるように宣言だけを行っています。
-
-なお、シェーダ側に`Range`型を定義していない理由は、シェーダでは`uint`のような1要素の型を複数使うより、`uvec2`のような2要素以上をまとめたベクトル型のほうが効率に処理されるからです。
-
->**【スカラーとベクトル】**<br>
->`float`や`int`のように、1要素で構成される型のことを「スカラー型」、`vec2`, `vec3`, `vec4`のように2つ以上の要素で構成される型のことを「ベクトル型」といいます。
-
-CPU側ではスカラー型でもベクトル型でも処理能力に違いはないので、コードを読みやすくするために構造体を定義しているわけです。
-
-`struct LightDataBlock`はシェーダ側の`LightDataBlock`に対応する構造体です。この型も宣言だけを行っています。
-
-`RemoveIneffectiveLight`(リムーブ・インエフェクティブ・ライト、「効果のないライトを除外する」という意味)メンバ関数は、視錐台の範囲に影響しないライトを除去します。
-
-`BuildLightDataBlock`(ビルド・ライト・データ・ブロック、「ライトデータブロックを構築する」という意味)メンバ関数は、すべてのタイルのライトインデックス配列の範囲を設定します。
-
-`BuildLightIndices`(ビルド・ライト・インディシーズ、「ライトインデックス配列を構築する」という意味)メンバ関数は、タイルごとのライトインデックス配列を作成します。
-
-次に`LightDataBlock`構造体を定義します。`LightBuffer.cpp`を開き、`VecMath`を`using`宣言するプログラムの下に、次のプログラムを追加してください。
+`LightBuffer.cpp`を開き、`VecMath`を`using`宣言するプログラムの下に、次のプログラムを追加してください。
 
 ```diff
  #include <algorithm>
 
  using namespace VecMath;
 +
-+// TBR用タイル情報(シェーダ側と一致させること)
++// 無名名前空間
++namespace /* unnamed */ {
 +
 +// 最大ライトインデックス数
 +constexpr int maxLightIndexCount =
-+  Frustum::tileCountX * Frustum::tileCountY * Frustum::lightsPerTile;
++Frustum::tileCountX * Frustum::tileCountY * Frustum::lightsPerTile;
 +
 +// タイルのライトインデックス配列の範囲
-+struct LightBuffer::Range
++struct Range
 +{
 +  uint32_t begin = 0; // ライトインデックス配列の開始位置
 +  uint32_t count = 0; // ライトインデックスの数
 +};
 +
 +// SSBOに設定するライトデータ
-+struct LightBuffer::LightDataBlock
++struct LightDataBlock
 +{
 +  vec2 tileSize; // タイルの大きさ
 +  float dummy[2];// 16バイトアラインのためのダミー領域
@@ -802,203 +794,259 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 +  // タイルごとのライトインデックス配列の範囲
 +  Range lightIndexRanges[Frustum::tileCountY][Frustum::tileCountX];
 +};
++
++} // unnamed namespace
 
  /**
  * コンストラクタ
 ```
 
-上記のプログラムのように、クラス内で宣言した構造体やクラスは、`::`演算子を使うことで宣言と定義を別々に行うことができます。これによって、宣言だけを公開し、実装は非公開にすることができます。
+`LightDataBlock`構造体はシェーダ側の`LightDataBlock`バッファに対応する構造体です。
 
-### 1.14 RemoveIneffectiveLight関数を定義する
+`Range`(レンジ)構造体は、シェーダ側の`LightDataBlock`にある`lightIndexRanges`配列の`uvec2`型に相当します。実装詳細を公開する必要はないので、メンバ変数の引数にできるように宣言だけを行っています。
 
-ライトインデックス配列の作成は以下の手順で行います。
+シェーダ側に`Range`型を定義していない理由は、シェーダでは`uint`のような1要素の型を複数使うより、`uvec2`のような2要素以上をまとめたベクトル型のほうが、効率よく処理できるからです。
 
-1. `RemoveIneffectiveLight`: メインフラスタムと交差しているライトだけを`buffers`配列に残す。
-2. `BuildLightDataBlock`: すべてのサブフラスタムについて`BuildLightIndices`関数を呼び出し、タイルが使用するライトインデックス配列の範囲を設定する。
-3. `BuildLightIndices`: 全てのライトとの交差判定を行い、ライトインデックス配列を更新する。
+>**【スカラーとベクトル】**<br>
+>`float`や`int`のように、1要素で構成される型のことを「スカラー型」、`vec2`, `vec3`, `vec4`のように2つ以上の要素で構成される型のことを「ベクトル型」といいます。
 
-それでは`RemoveIneffectiveLight`メンバ関数から定義していきましょう。このメンバ関数は、「ライトがメインフラスタムと交差しているかどうか」、言い換えると「画面に影響するライトかどうか」を調べます。
+CPU側ではスカラー型でもベクトル型でも処理能力に違いはないので、コードを読みやすくするために構造体を定義しているわけです。
 
-この処理によって、明らかに無関係なライトを除外し、GPUに転送する必要のあるライトデータを削減できます。`AddPointLight`メンバ関数の定義の下に、次のプログラムを追加してください。
+### 2.6 LightDataBlockBuilderクラスを定義する
+
+`LightDataBlock`構造体にデータを設定するには、ライトをワールド座標系からビュー座標系に変換したり、視錐台との衝突判定を行わなくてはなりません。その過程では、ビュー座標系の衝突判定を作成して管理する必要があります。
+
+そこで、`LightDataBlock`を作成するための補助クラスを定義します。クラス名は`LightDataBlockBuilder`(ライトデータブロック・ビルダー)とします。`LightBuffer.h`を開き、次のプログラムを追加してください。
 
 ```diff
-       LightData{ position, radius, vec4(color, 0) });
-   }
- }
+   std::vector<LightData> buffer;
+   MappedBufferObjectPtr ssbo;
+   bool isUpdating = false; // ライトデータ作成中はtrue
++
++  class LightDataBlockBuilder;
++  std::shared_ptr<LightDataBlockBuilder> lightDataBlockBuilder;
+ };
+
+ #endif // LIGHTBUFFER_H_INCLUDED
+```
+
+続いて、`LightDataBlockBuilder`クラスを定義します。無名名前空間の定義の下に、次のプログラムを追加してください。
+
+```diff
+   Range lightIndexRanges[Frustum::tileCountY][Frustum::tileCountX];
+ };
+
+ } // unnamed namespace
 +
 +/**
-+* buffer配列から視錐台に影響しないライトデータを削除する
-+*
-+* @param[in]  frustum 視錐台
-+* @param[in]  matView ビュー行列
-+* @param[out] posView ビュー座標系に変換したライト座標の配列
++* GPUに送るライトインデックス配列を構築するための補助クラス
 +*/
-+void LightBuffer::RemoveIneffectiveLight(const Frustum& frustum,
-+  const mat4& matView, std::vector<vec3>& posView)
++class LightBuffer::LightDataBlockBuilder
 +{
-+  std::vector<LightData> lightInFrustum;
-+  lightInFrustum.reserve(buffer.size());
-+  posView.reserve(buffer.size());
++public:
++  // コンストラクタ、デストラクタ
++  explicit LightDataBlockBuilder(size_t maxLightCount) :
++    maxLightCount(maxLightCount)
++  {
++  }
++  ~LightDataBlockBuilder() = default;
 +
-+  // メインフラスタムと交差しているライトだけをピックアップ
-+  for (uint32_t i = 0; i < buffer.size(); ++i) {
-+    // ライトの座標をビュー座標系に変換
-+    const LightData& e = buffer[i];
-+    const vec3 pos = vec3(matView * vec4(e.position, 1));
-+
-+    // ライトの影響範囲とメインフラスタムの交差判定を行う
-+    const Collision::Sphere s = { pos, e.radius };
-+    if (SphereInsideFrustum(s, frustum)) {
-+      // 交差しているのでライトを登録
-+      lightInFrustum.push_back(e);
-+      posView.push_back(pos);
-+    }
++  /**
++  * 視錐台に影響しないポイントライタを削除
++  *
++  * @param frustum 視錐台
++  * @param matView ビュー行列
++  */
++  void RemoveIneffectivePointLight(const Frustum& frustum, const mat4& matView)
++  {
 +  }
 +
-+  // ライトデータを入れ替える
-+  buffer.swap(lightInFrustum);
-+}
++  /**
++  * ポイントライトのライトインデックス配列を構築
++  *
++  * @param frustum 視錐台
++  */
++  void BuildPointLightIndices(const Frustum& frustum)
++  {
++  }
++
++  /**
++  * サブフラスタムと交差するライトをインデックス配列に登録
++  *
++  * @param subFrustum サブ視錐台
++  */
++  void BuildPointLightIndices(const SubFrustum& subFrustum)
++  {
++  }
++
++  /**
++  * ライトデータブロックを構築する
++  *
++  * @param frustum  視錐台
++  * @param matView  ビュー行列
++  * @param tileSize タイルサイズの逆数
++  */
++  void Build(const Frustum& frustum, const mat4& matView,
++    const vec2& tileSize)
++  {
++  }
++
++  /**
++  * ライトデータをGPUメモリにコピー
++  *
++  * @param p コピー先アドレス
++  */
++  void Upload(uint8_t* p)
++  {
++  }
++
++private:
++  LightDataBlock lightDataBlock; // シェーダに送るデータ
++  uint32_t lightIndexCount = 0;  // 現在のライトインデックス数
++  size_t maxLightCount = 0;      // 最大ライト数
++
++  // ビュー座標系に変換したライトの衝突判定
++  std::vector<Collision::Sphere> pointLightColliders;
++};
 
  /**
- * ライトデータの作成を終了
+ * コンストラクタ
 ```
 
-このプログラムでは`SphereInsideFrustum`関数によって、ライトの影響半径とフラスタムの交差判定を行い、交差しているライトだけを`lightInFrustum`(ライト・イン・フラスタム)配列に追加します。
+`LightDataBlockBuilder`クラスは、ライトインデックス配列の作成とGPUメモリへのコピーを、5つのメンバ関数に分けて行います。各メンバ関数の名前の意味と機能の要約は次のとおりです。
 
-そして、関数の最後で`buffer`と`lightInFrustum`を入れ替えることで、`buffer`から「フラスタムに影響しないライト」を除去しています。
+| メンバ関数 | 機能 |
+|:----------:|:----|
+| `RemoveIneffectivePointLight`<br>(リムーブ・インエフェクティブ・ポイントライト) | 「効果のないライトを除外する」という意味。視錐台の範囲に影響しないライトを除去する。 |
+| `BuildPointLightIndices`<br>(ビルド・ポイントライト・インディシーズ) | 「ライトインデックス配列を構築する」という意味。タイルごとのライトインデックス配列を作成する。<br>メインフラスタム用とサブフラスタム用で2種類定義する。 |
+| `Build`(ビルド) | 上の3つのメンバ関数を使ってライトインデックス配列を作成する。 |
+| `Upload`(アップロード) | `Build`で作成したライトインデックス配列をGPUメモリにコピーする。 |
 
-ビュー行列はライトの座標を変換するために使います。フラスタムはビュー空間で定義されているので、ライトの座標もビュー座標系でなくては正しい判定が行えないからです。
+クラス内で宣言した構造体やクラスは、`::`演算子を使うことで宣言と定義を別々に行うことができます。これによって、宣言だけを公開し、実装は非公開にすることができます。
 
-また、ビュー座標系のライト座標は次に作成する`BuildLightDataBlock`メンバ関数でも必要なので、引数で受け取ったオブジェクトに格納しています。
+>**【::演算子(スコープ解決演算子)について】**<br>
+>`::`は「スコープ解決演算子」といいます。異なるスコープ(名前空間やクラス)で使用される名前(識別子)を特定し、曖昧さを解消するために使われます。
 
-### 1.15 BuildLightDataBlock関数を定義する
+### 2.7 buffer配列をLightDataBlockBuilderに移動する
 
-続いて、`BuildLightDataBlock`メンバ関数を定義します。`RemoveIneffectiveLight`メンバ関数の定義の下に、次のプログラムを追加してください。
+ライトインデックス配列を作成するには`LightBuffer`クラスが持つ`buffer`配列の情報が必要です。それならば、`buffer`配列を`LightDataBlockBuilder`クラスに移動して管理を任せてしまったほうが、プログラムが簡単になりそうです。
+
+ということで、`buffer`配列を`LightDataBlockBuilder`クラスに移動させましょう。`LightBuffer.h`を開き、`buffer`配列の定義を切り取ってください。
 
 ```diff
-   // ライトデータを入れ替える
-   buffer.swap(lightInFrustum);
- }
-+
-+/**
-+* ライトインデックス配列を構築する
-+*
-+* @param[in]  frustum 視錐台
-+* @param[in]  posView ビュー座標系に変換したライト座標の配列
-+* @param[out] lightDataBlock ライトインデックス配列を格納するオブジェクト
-+*/
-+void LightBuffer::BuildLightDataBlock(const Frustum& frustum,
-+  const std::vector<VecMath::vec3>& posView,
-+  LightDataBlock& lightDataBlock)
-+{
-+  // すべてのタイル(サブフラスタム)についてループ
-+  uint32_t lightIndexCount = 0; // ライトインデックス数
-+  for (int y = 0; y < Frustum::tileCountY; ++y) {
-+    for (int x = 0; x < Frustum::tileCountX; ++x) {
-+      // ライトインデックス配列の位置を範囲の先頭として設定
-+      Range& range = lightDataBlock.lightIndexRanges[y][x];
-+      range.begin = lightIndexCount;
-+
-+      // サブフラスタムと交差するライトをインデックス配列に登録
-+      BuildLightIndices(frustum.sub[y][x],
-+        posView, lightDataBlock.lightIndices, lightIndexCount);
-+
-+      // ライトインデックスの数を設定
-+      range.count = lightIndexCount - range.begin;
-+
-+      // 容量不足なら構築を終了する
-+      if (lightIndexCount >= maxLightIndexCount) {
-+        return; // 容量不足
-+      }
-+    } // for x
-+  } // for y
-+}
-
- /**
- * ライトデータの作成を終了
+     VecMath::vec4 position; // 座標(wは未使用)
+     VecMath::vec4 color; // 色と明るさ(wは未使用)
+   };
+-  std::vector<LightData> buffer;
+   MappedBufferObjectPtr ssbo;
+   bool isUpdating = false; // ライトデータ作成中はtrue
 ```
 
-`Range`構造体に設定している値に注意してください、`lightIndexCount`変数は「現在のライトインデックス配列の要素数」を表します。
-
-`BuildLightIndices`関数を実行すると、タイルに影響するライトのインデックス数だけ`lightIndexCount`が増加します。つまり、関数実行前後の`lightIndexCount`の差が、タイルのライトインデックス数になるわけです。
-
-また、このプログラムはすべてのタイルを処理するために2重ループになっています。フラスタムを細かく分割し、タイル数を増やすほどシェーダの効率は向上しますが、分割しすぎるとこの部分のループ回数が増え、CPU側の効率が低下します。
-
-そのため、分割数は多すぎず少なすぎずというバランスが大切になります。
-
-### 1.16 BuildLightIndices関数を定義する
-
-次に`BuildLightIndices`メンバ関数を定義します。この関数は、あるタイルのサブフラスタムと全てのライトの交差判定を行い、タイルに影響するライトのインデックスをライトインデックス配列に記録します。
-
-`BuildLightDataBlock`メンバ関数の定義の下に、次のプログラムを追加してください。
+次に`LightBuffer.cpp`を開き、`LightDataBlockBuilder`クラスの定義に貼り付けてください。
 
 ```diff
-     } // for x
-   } // for y
- }
-+
-+/**
-+* サブフラスタムと交差するライトをインデックス配列に登録
-+*
-+* @param[in]      subFrustum サブ視錐台
-+* @param[in]      posView ビュー座標系に変換したライト座標の配列
-+* @param[in, out] lightIndices ライトインデックス配列
-+* @param[in, out] lightIndexCount ライトインデックス数
-+*/
-+void LightBuffer::BuildLightIndices(const SubFrustum& subFrustum,
-+  const std::vector<VecMath::vec3>& posView,
-+  uint32_t* lightIndices, uint32_t& lightIndexCount)
-+{
-+  // すべてのライトについてループ
-+  for (uint32_t i = 0; i < buffer.size(); ++i) {
-+    // ライトの影響範囲とサブフラスタムの交差判定を行う
-+    const Collision::Sphere s = { posView[i], buffer[i].radius };
-+    if (SphereInsideSubFrustum(s, subFrustum)) {
-+      // ライトインデックス配列にインデックスを記録
-+      lightIndices[lightIndexCount] = i;
-+      ++lightIndexCount;
-+
-+      // 容量不足なら構築を終了する
-+      if (lightIndexCount >= maxLightIndexCount) {
-+        LOG_WARNING("ライトインデックス配列が不足しています(サイズ=%d)",
-+          maxLightIndexCount);
-+        break;
-+      }
-+    }
-+  } // for i
-+}
-
- /**
- * ライトデータの作成を終了
+   LightDataBlock lightDataBlock; // シェーダに送るデータ
+   uint32_t lightIndexCount = 0;  // 現在のライトインデックス数
+   size_t maxLightCount = 0;      // 最大ライト数
++  std::vector<LightData> buffer;
+ 
+   // ビュー座標系に変換したライトの衝突判定
+   std::vector<Collision::Sphere> pointLightColliders;
 ```
 
-`BuildLightIndices`メンバ関数は、全てのライトとサブフラスタムの交差判定を行い、交差したライトのインデックスをライトインデックス配列に追加します。
+それから、ライトデータを設定するためのメンバ関数を定義します。`LightDataBlockBuilder`クラスの定義に次のプログラムを追加してください。
 
-### 1.17 EndUpdate関数を修正する
+```diff
+     maxLightCount(maxLightCount)
+   {
+   }
+   ~LightDataBlockBuilder() = default;
++
++  /**
++  * ポイントライトのデータを追加
++  */
++  void AddPointLight(const LightData& light) { buffer.push_back(light); }
 
-シェーダの`LightDataBlock`の構造を変更したので、`EndUpdate`メンバ関数のデータコピープログラムにも修正が必要です。ここで、作成したプライベートメンバ関数を呼び出します。
+   /**
+   * 視錐台に影響しないポイントライタを削除
+```
 
-`EndUpdate`メンバ関数の定義を次のように変更してください。
+次に、`LightDataBlockBuilder`コンストラクタに`buffer`を初期化するプログラムを追加してください。
+
+```diff
+   explicit LightDataBlockBuilder(size_t maxLightCount) :
+     maxLightCount(maxLightCount)
+   {
++    buffer.reserve(maxLightCount);
+   }
+   ~LightDataBlockBuilder() = default;
+```
+
+続いて、`buffer`配列を移動させたことによるエラーに対処します。まず`BeginUpdate`メンバ関数の定義を次のように変更してください。
+
+```diff
+     return;
+   }
+   isUpdaring = true;
+ 
+-  buffer.reserve(ssbo->GetSize() / sizeof(LightData));
++  // ライトインデックス配列を作成する補助オブジェクトを作成
++  // このオブジェクトはEndUpdateで削除される
++  const size_t maxLightCount =
++    (ssbo->GetSize() - sizeof(LightDataBlock)) / sizeof(LightData);
++  lightDataBlockBuilder =
++    std::make_shared<LightDataBlockBuilder>(maxLightCount);
+ }
+
+ /**
+ * ライトデータを追加
+```
+
+次に、`AddPointLight`メンバ関数の定義を次のように変更してください。
+
+```diff
+ void LightBuffer::AddPointLight(const vec3& position, const vec3& color)
+ {
+   if (isUpdating) {
+-    buffer.push_back(
++    lightDataBlockBuilder->AddPointLight(
+       LightData{ vec4(position, 0), vec4(color, 0) });
+   }
+ }
+```
+
+最後に、`EndUpdate`メンバ関数の定義を次のように変更してください。
 
 ```diff
    if (isUpdaring) {
      isUpdaring = false;
-+ 
-+    // 視錐台に影響しないライトデータを削除
-+    std::vector<vec3> posView; // ビュー座標系に変換したライト座標の配列
-+    RemoveIneffectiveLight(frustum, matView, posView);
 +
-+    // ライトをタイルに配置
-+    auto lightDataBlock = std::make_shared<LightDataBlock>();
-+    BuildLightDataBlock(frustum, posView, *lightDataBlock);
-+
-+    // タイルサイズを設定
-+    lightDataBlock->tileSize =
++    // GPUメモリに送るデータを構築
++    const vec2 tileSize =
 +      vec2(Frustum::tileCountX, Frustum::tileCountY) / windowSize;
++    lightDataBlockBuilder->Build(frustum, matView, tileSize);
 
      // データをGPUメモリにコピー
      ssbo->WaitSync();
-     uint8_t* p = ssbo->GetMappedAddress();
+-    uint8_t* p = ssbo->GetMappedAddress();
++    lightDataBlockBuilder->Upload(ssbo->GetMappedAddress());
+-    const int lightCount[4] = { static_csat<int>(buffer.size()) }
+-    memcpy(p, buffer.data(), sizeof(lightCount));
+-    if ( ! buffer.empty()) {
+-      p += sizeof(lightCount);
+-      const size_t size = std::min<size_t>(
+-        ssbo->GetSize(), buffer.size() * sizeof(LightData));
+-      memcpy(p, buffer.data(), size);
+
+-      // バッファの容量を最小化
+-      buffer.clear();
+-      buffer.shrink_to_fit();
+-    }
++
++    // ライトデータ構築用オブジェクトを削除
++    lightDataBlockBuilder.reset();
+   } // if isUpdating
+ }
 ```
 
 `tileSize`(タイル・サイズ)は、フラグメントの座標をタイルのインデックスに変換するために使います。タイルのインデックスは次の式で求められます。
@@ -1013,50 +1061,228 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 
 `(タイル数 / ウィンドウサイズ)`をGPUメモリの`tileSize`変数にコピーし、フラグメントシェーダでは`tileSize`を掛けてタイルインデックスを計算します。
 
-次に、データをGPUメモリにコピーするプログラムを修正して、`LightDataBlock`をコピーするようにします。データをGPUメモリにコピーするプログラムを、次のように変更してください。
+これで、`buffer`配列を使っていた部分をすべて`LightDataBlockBuilder`クラスで置き換えることができました。
+
+### 2.8 bufferという名前を改良する
+
+`buffer`配列にはライトデータが格納されるわけですが、`buffer`という名前からはいまいち想像がつきません。そこで、より適切な名前に改名することにします。新しい名前は`pointLigts`(ポイントライツ)とします。
+
+`pointLigts`という名前からは「ポイントライト(点光源)」であること、末尾に付けた複数形を意味する`s`から「配列」であることが分かるため、`buffer`よりも優れていると言えます。
+
+それでは、`LigthDataBlockBuilder`クラスの定義を次のように変更してください。
 
 ```diff
-     // データをGPUメモリにコピー
-     ssbo->WaitSync();
-     uint8_t* p = ssbo->GetMappedAddress();
--    const int lightCount[4] = { static_csat<int>(buffer.size()) }
--    memcpy(p, buffer.data(), sizeof(lightCount));
-+    memcpy(p, lightDataBlock.get(), sizeof(LightDataBlock));
-
-     if ( ! buffer.empty()) {
--      p += sizeof(lightCount);
-+      p += sizeof(LightDataBlock);
-       const size_t size = std::min<size_t>(
--        ssbo->GetSize(), buffer.size() * sizeof(LightData));
-+        ssbo->GetSize() * sizeof(lightDataBlock),
-+        buffer.size() * sizeof(LightData));
-       memcpy(p, buffer.data(), size);
+   LightDataBlock lightDataBlock; // シェーダに送るデータ
+   uint32_t lightIndexCount = 0;  // 現在のライトインデックス数
+   size_t maxLightCount = 0;      // 最大ライト数
+-  std::vector<LightData> buffer;
++  std::vector<LightData> pointLigts; // ポイントライト配列
  
-       // バッファの容量を最小化
+   // ビュー座標系に変換したライトの衝突判定
+   std::vector<Collision::Sphere> pointLightColliders;
+```
+
+次に`AddPointLight`メンバ関数の定義を次のように変更してください。
+
+```diff
+   /**
+   * ポイントライトのデータを追加
+   */
+-  void AddPointLight(const LightData& light) { buffer.push_back(light); }
++  void AddPointLight(const LightData& light) { pointLights.push_back(light); }
+
+   /**
+   * 視錐台に影響しないポイントライトを削除
+```
+
+少しですが、以前よりコードの意味が明確になりました。より良いコードを作るには、こうした小さな改良の積み重ねが大切です。
+
+### 2.9 RemoveIneffectivePointLight関数を定義する
+
+この時点でビルドエラーはないはずですが、`LightDataBlockBuilder`クラスが未完成なので正しい描画はできません。`LightDataBlockBuilder`のメンバ関数の中身を書いて、プログラムを完成させましょう。
+
+まずは`RemoveIneffectivePointLight`メンバ関数を定義します。このメンバ関数は、「ポイントライトがメインフラスタムと交差しているかどうか」、言い換えると「画面に影響するライトかどうか」を調べ、影響しないライトを除去します。
+
+この処理によって、GPUに転送するライトデータを減らせます。`RemoveIneffectivePointLight`メンバ関数の定義に、次のプログラムを追加してください。
+
+```diff
+   */
+   void RemoveIneffectivePointLight(const Frustum& frustum, const mat4& matView)
+   {
++    std::vector<LightData> lightInFrustum;
++    lightInFrustum.reserve(pointLights.size());
++    pointLightColliders.reserve(pointLights.size());
++
++    // メインフラスタムと交差しているライトだけをピックアップ
++    for (uint32_t i = 0; i < pointLights.size(); ++i) {
++      // ライトの座標をビュー座標系に変換
++      const LightData& e = pointLights[i];
++      const vec3 pos = vec3(matView * vec4(e.position, 1));
++
++      // ライトの影響範囲とメインフラスタムの交差判定を行う
++      const Collision::Sphere s = { pos, e.radius };
++      if (SphereInsideFrustum(s, frustum)) {
++        // 交差しているのでライトを登録
++        lightInFrustum.push_back(e);
++        pointLightColliders.push_back(s);
++      }
++    }
++
++    // ライトデータを入れ替える
++    pointLights.swap(lightInFrustum);
+   }
+
+   /**
+   * 視錐台に影響しないスポットライトを削除
+```
+
+このプログラムでは`SphereInsideFrustum`関数によって、ライトの影響半径とフラスタムの交差判定を行い、交差しているライトだけを`lightInFrustum`(ライト・イン・フラスタム)配列に追加します。
+
+そして、関数の最後で`buffer`と`lightInFrustum`を入れ替えることで、`buffer`から「フラスタムに影響しないライト」を除去しています。
+
+ビュー行列はライトの座標を変換するために使います。フラスタムはビュー空間で定義されているので、ライトの座標もビュー座標系でなくては正しい判定が行えないからです。
+
+また、ビュー座標系のライト座標は次に作成する`BuildLightDataBlock`メンバ関数でも必要なので、引数で受け取ったオブジェクトに格納しています。
+
+### 2.10 BuildLightDataBlock関数を定義する
+
+続いて、`BuildPointLightIndices`メンバ関数を定義します。`RemoveIneffectivePointLight`メンバ関数の定義の下に、次のプログラムを追加してください。
+
+```diff
+   */
+   void BuildPointLightIndices(const Frustum& frustum)
+   {
++    // すべてのサブフラスタムについてループ
++    // NOTE: 高速化を目指す場合、サブフラスタムごとにスレッド化するとよい
++    for (int y = 0; y < Frustum::tileCountY; ++y) {
++      for (int x = 0; x < Frustum::tileCountX; ++x) {
++        // ライトインデックス配列の位置を範囲の先頭として設定
++        Range& range = lightDataBlock.lightIndexRanges[y][x];
++        range.begin = lightIndexCount;
++
++        // サブフラスタムと交差するライトをインデックス配列に登録
++        BuildPointLightIndices(frustum.sub[y][x]);
++
++        // ライトインデックス数を設定
++        range.count = lightIndexCount - range.begin;
++
++        // 容量不足なら構築を終了する
++        if (lightIndexCount >= maxLightIndexCount) {
++          return; // 容量不足
++        }
++      } // for x
++    } // for y
+   }
+
+   /**
+   * サブフラスタムと交差するライトをインデックス配列に登録
+```
+
+`Range`構造体に設定している値に注意してください、`lightIndexCount`変数は「現在のライトインデックス配列の要素数」を表します。
+
+`BuildLightIndices`関数を実行すると、タイルに影響するライトのインデックス数だけ`lightIndexCount`が増加します。つまり、関数実行前後の`lightIndexCount`の差が、タイルのライトインデックス数になるわけです。
+
+また、このプログラムはすべてのタイルを処理するために2重ループになっています。フラスタムを細かく分割し、タイル数を増やすほどシェーダの効率は向上しますが、分割しすぎるとこの部分のループ回数が増え、CPU側の効率が低下します。
+
+そのため、分割数は多すぎず少なすぎずというバランスが大切になります。
+
+### 2.11 BuildLightIndices関数を定義する
+
+次にサブフラスタム用の`BuildPointLightIndices`メンバ関数を定義します。この関数は、あるタイルのサブフラスタムと全てのライトの交差判定を行い、タイルに影響するライトのインデックスをライトインデックス配列に記録します。
+
+`BuildLightDataBlock`メンバ関数の定義の下に、次のプログラムを追加してください。
+
+```diff
+   */
+   void BuildPointLightIndices(const SubFrustum& subFrustum)
+   {
++    // すべてのライトについてループ
++    for (uint32_t i = 0; i < pointLights.size(); ++i) {
++      // ライトの影響範囲とサブフラスタムの交差判定を行う
++      if (SphereInsideSubFrustum(pointLightColliders[i], subFrustum)) {
++        // ライトインデックス配列にインデックスを記録
++        lightDataBlock.lightIndices[lightIndexCount] = i;
++        ++lightIndexCount;
++
++        // 容量不足なら構築を終了する
++        if (lightIndexCount >= maxLightIndexCount) {
++          LOG_WARNING("ライトインデックス配列が不足しています(サイズ=%d)",
++            maxLightIndexCount);
++          break;
++        }
++      }
++    } // for i
+   }
+
+   /**
+   * スポットライトのライトインデックス配列を構築する
+```
+
+### 2.12 Build関数を定義する
+
+ここまでに作成したメンバ関数を使って`Build`メンバ関数を完成させます。`Build`メンバ関数の定義に次のプログラムを追加してください。
+
+```diff
+   void Build(const Frustum& frustum, const mat4& matView,
+     const vec2& tileSize)
+   {
++    // タイルサイズの逆数を設定
++    lightDataBlock.tileSize = tileSize;
++
++    // 視錐台に影響するポイントライトを選別し、タイルに配置
++    RemoveIneffectivePointLight(frustum, matView);
++    BuildPointLightIndices(frustum);
+   }
+
+   /**
+   * ライトデータをGPUメモリにコピー
+```
+
+### 2.13 Upload関数を定義する
+
+最後に、`Upload`メンバ関数を定義します。この関数は、作成したライトインデックス配列とライトデータをGPUメモリにコピーします。`Upload`メンバ関数の定義に次のプログラムを追加してください。
+
+```diff
+   */
+   void Upload(uint8_t* p)
+   {
++    // ライトインデックス配列をコピー
++    memcpy(p, &lightDataBlock, sizeof(LightDataBlock));
++    p += sizeof(LightDataBlock);
++
++    // ポイントライトのデータをコピー
++    if ( ! pointLights.empty()) {
++      const size_t count = std::min(maxLightCount, pointLights.size());
++      memcpy(p, pointLights.data(), count * sizeof(LightData));
++      p += count * sizeof(LightData);
++    }
+   }
+
+ private:
 ```
 
 これで、タイルに影響するライトの情報がSSBOにコピーされるようになりました。
 
 プログラムが書けたらビルドして実行してください。見た目の変化はありませんが、処理速度は向上しているはずです。
 
-### 1.18 ライトの範囲を制限する
+### 2.14 ライトの範囲を制限する
 
-カメラを動かしてみると分かりますが、前節で「見た目の変化はない」と書いたのは大嘘です。実際には鏡面反射に大きな影響が出ています。カメラの向きや位置によって、ライトの鏡面反射が描画されたりされなかったりするはずです。
+カメラを動かしたときに気づいたかもしれませんが、前節で「見た目の変化はない」と書いたのは嘘です。実際には鏡面反射に大きな影響が出ています。カメラの向きや位置によって、ライトの鏡面反射が描画されたりされなかったりするはずです。
 
 <p align="center">
 <img src="images/tips_07_result_1.jpg" width="45%" /><br>
 [赤枠内の鏡面反射が消えている]
 </p>
 
-鏡面反射は入射光の大半を同じ方向に反射するため、かなり遠くの光源からの光でも強い反射を起こすからです。
+これは、鏡面反射が「かなり遠くの光源からの光でも強い反射を起こす」ためです(入射光の大半を同じ方向に反射するため)。
 
-このため、距離が離れているオブジェクトが偶然サブフラスタム内に存在すると、鏡面反射が発生してライトが描画されます。そして、サブフラスタムから外れるとライトは描画されなくなります。
+この性質があるため、距離が離れているオブジェクトが偶然サブフラスタム内に存在する場合のみ、鏡面反射が発生してライトが描画されます。そして、オブジェクトがサブフラスタムから外れるとライトは描画されなくなります。
 
 つまり、現在のライトの影響半径の計算式は、実際には拡散反射にしか有効ではないのです。かといって、鏡面反射に対応できるように影響半径を広げると、事実上タイルベースドレンダリングが無意味になってしまいます。
 
-そこで、影響範囲の境界において鏡面反射の明るさが0になるように、反射光の明るさを徐々に減衰させることにします。これは物理的には完全な嘘っぱちですが、現代のほぼすべてのゲームエンジンで使われている手法です。
+そこで、影響範囲の境界において鏡面反射の明るさが0になるように、反射光の明るさを徐々に減衰させることにします。これは物理的には完全な嘘っぱちですが、遠距離からの鏡面反射の有無がゲームプレイに影響することはあまり考えられません。
 
-`standard_3D.frag`を開き、ComputePointLight`関数の定義に次のプログラムを追加してください。
+実際に、現代のほぼすべてのゲームエンジンでも鏡面反射の距離は制限されています。それでは、`standard_3D.frag`を開き、ComputePointLight`関数の定義に次のプログラムを追加してください。
 
 ```diff
        vec3 halfVector = normalize(direction + cameraVector);
@@ -1084,7 +1310,7 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 [全体的に鏡面反射が弱くなっている]
 </p>
 
-### 1.19 タイルごとのライト数を確認する
+### 2.15 タイルごとのライト数を確認する
 
 処理速度が向上したと言われても、見た目ではあまり違いが分からないかもしれません。そこで、シェーダに手を加えて「タイルごとのライト数を視覚化」してみましょう。
 
@@ -1137,7 +1363,7 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 インテンシティと影響半径を元に戻し、jetカラーマップを作成するプログラムの<code>#if 1</code>の部分を<code>#if 0</code>にして、jetカラーマップを非表示にしなさい。
 </pre>
 
->**【まとめ】**<br>
+>**【2章のまとめ】**<br>
 >
 >* 画面を小さなタイル状の領域に分割して描画することを「タイル・ベースド・レンダリング(TBR)」という。
 >* タイルは3D空間では錘台形(フラスタム)になる。
