@@ -420,7 +420,7 @@ glTFの読み込みを実装している場合は、`GltfMaterial`構造体に�
 
 <div style="page-break-after: always"></div>
 
-## 2.  イメージ・ベースド・ライティング(IBL)
+## 2. イメージ・ベースド・ライティング(IBL)
 
 ### 2.1 事前処理された放射輝度環境マップ(PMREM)
 
