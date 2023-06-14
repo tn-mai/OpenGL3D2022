@@ -373,12 +373,17 @@ https://www.3dgep.com/forward-plus/
 +*/
 +bool SphereInsideFrustum(const Sphere& sphere, const Frustum& frustum)
 +{
++  // ニア平面との交差判定
 +  if (sphere.p.z - sphere.radius > frustum.zNear) {
 +    return false;
 +  }
++
++  // ファー平面との交差判定
 +  if (sphere.p.z + sphere.radius < frustum.zFar) {
 +    return false;
 +  }
++
++  // 上下左右の平面との交差判定
 +  return SphereInsideSubFrustum(sphere, frustum.main);
 +}
 ```
@@ -452,10 +457,16 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
  {
 -  int lightCount;
 -  int dummy[3];
-+  vec2 tileSize; // タイルの大きさ
-+  int dummy[2];
-+  uint lightIndices[maxLightIndexCount]; // ライトのインデックス
-+  uvec2 lightIndexRanges[tileCountY][tileCountX]; // タイルごとのインデックス領域
++  vec2 tileSize;  // タイルの大きさ
++  float dummy[2]; // 16バイトアラインのためのダミー領域
++
++  // ライトインデックス配列
++  uint lightIndices[maxLightIndexCount];
++
++  // ポイントライト用のライトインデックスの範囲
++  uvec2 lightIndexRanges[tileCountY][tileCountX];
++
++  // ライトデータ配列
    Light lightList[];
  };
 ```
@@ -663,7 +674,6 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 続いて`LightBuffer.cpp`を開き、`AddPointLight`メンバ関数の定義を次のように変更してください。
 
 ```diff
- * ライトデータを追加
  *
  * @param position ライトの座標
  * @param color    ライトの色および明るさ
@@ -683,6 +693,7 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 -      LightData{ vec4(position, 0), vec4(color, 0) });
 +      LightData{ position, radius, vec4(color, 0) });
    }
+ }
 ```
 
 ライトの明るさを`K`とすると、光源中心からの距離`D`における明るさ`L`は、`L = K / (1 + D^2)`という式(1)で表せます(フラグメントシェーダを参照)。
@@ -787,11 +798,13 @@ https://www.zora.uzh.ch/id/eprint/107598/1/a11-olsson.pdf
 +// SSBOに設定するライトデータ
 +struct LightDataBlock
 +{
-+  vec2 tileSize; // タイルの大きさ
-+  float dummy[2];// 16バイトアラインのためのダミー領域
-+  uint32_t lightIndices[maxLightIndexCount]; // ライトインデックス配列
++  vec2 tileSize;  // タイルの大きさ
++  float dummy[2]; // 16バイトアラインのためのダミー領域
 +
-+  // タイルごとのライトインデックス配列の範囲
++  // ライトインデックス配列
++  uint32_t lightIndices[maxLightIndexCount];
++
++  // ポイントライト用のライトインデックスの範囲
 +  Range lightIndexRanges[Frustum::tileCountY][Frustum::tileCountX];
 +};
 +
