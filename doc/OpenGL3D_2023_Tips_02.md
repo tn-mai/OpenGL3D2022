@@ -417,13 +417,37 @@ DDSピクセル形式は`fourCC`によって定義されます。`fourCC`を判�
  } // unnamed namespace
 ```
 
-それでは、`fourCC`を使ってOpenGLのピクセル形式を選択しましょう。`LoadDDS`関数に戻り、DDSヘッダを取り出すプログラムの下に次のプログラムを追加してください。
+また、DXT圧縮形式はOpenGLの拡張機能として定義されているため、標準では対応するマクロ定数が未定義です。そこで、必要なマクロ定数を定義します。`DDS.cpp`の先頭に次のプログラムを追加してください。
+
+```diff
+ #include <filesystem>
+ #include <fstream>
+ #include <vector>
++
++// GL_EXT_texture_compression_s3tc
++#define GL_COMPRESSED_RGBA_S3TC_DXT1_EXT  0x83F1
++#define GL_COMPRESSED_RGBA_S3TC_DXT3_EXT  0x83F2
++#define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT  0x83F3
++
++// GL_EXT_texture_sRGB
++#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT  0x8C4D
++#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT  0x8C4E
++#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT  0x8C4F
+
+ namespace /* unnamed */ {
+
+ /**
+ * バイト列から数値を復元する
+```
+
+これで準備が整いました。`fourCC`を使ってOpenGLのピクセル形式を選択しましょう。`LoadDDS`関数に戻り、DDSヘッダを取り出すプログラムの下に次のプログラムを追加してください。
 
 ```diff
      LOG_ERROR("%sは未対応のDDSファイルです", filename);
      return 0; // 作成失敗
    }
 +
++  #define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT 
 +  // DDSピクセル形式に対応するOpenGLピクセル形式を選択
 +  GLenum imageFormat;      // 画像データのピクセル形式
 +  GLenum gpuFormat;        // GPU側のピクセル形式
