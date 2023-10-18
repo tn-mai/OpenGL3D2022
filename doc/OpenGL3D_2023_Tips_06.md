@@ -244,7 +244,7 @@ OpenGLの仕様によると、`GL_MAX_UNIFORM_BLOCK_SIZE`の最小値は16キロ
 +    ssbo->WaitSync();
 +    uint8_t* p = ssbo->GetMappedAddress();
 +    const int lightCount[4] = { static_csat<int>(buffer.size()) }
-+    memcpy(p, buffer.data(), sizeof(lightCount));
++    memcpy(p, lightCount, sizeof(lightCount));
 +    if ( ! buffer.empty()) {
 +      p += sizeof(lightCount);
 +      const size_t size = std::min<size_t>(
@@ -323,7 +323,6 @@ SSBOを使うにはSSBOをバインドする必要があります。しかし、
 +void LightBuffer::Unbind(GLuint index)
 +{
 +  glBindBufferRange(ssbo->GetType(), index, 0, 0, 0);
-+  ssbo->SwapBuffers();
 +}
 ```
 

@@ -1044,7 +1044,7 @@ CPU側ではスカラー型でもベクトル型でも処理能力に違いは�
 -    uint8_t* p = ssbo->GetMappedAddress();
 +    lightDataBlockBuilder->Upload(ssbo->GetMappedAddress());
 -    const int lightCount[4] = { static_csat<int>(buffer.size()) }
--    memcpy(p, buffer.data(), sizeof(lightCount));
+-    memcpy(p, lightCount, sizeof(lightCount));
 -    if ( ! buffer.empty()) {
 -      p += sizeof(lightCount);
 -      const size_t size = std::min<size_t>(
